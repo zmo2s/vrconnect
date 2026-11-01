@@ -1,0 +1,268 @@
+using Microsoft.AspNetCore.DataProtection;
+using DashboardVRChat.Api;
+using DashboardVRChat.Api.Services.Auth;
+using DashboardVRChat.Api.Services.ChatService;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
+using System.Text;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+builder.Services.AddMemoryCache();
+builder.Services.AddDataProtection()
+    .SetApplicationName("DashboardVRChat")
+    .PersistKeysToFileSystem(new System.IO.DirectoryInfo(
+        System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "VRChatDashboard", "keys")));
+builder.Services.AddSingleton<VrChatSessionStore>();
+builder.Services.AddHttpContextAccessor();
+// Each browser keeps its own VRChat client and pending verification cookies.
+builder.Services.AddScoped<VrChatSessionService>(services =>
+{
+    var context = services.GetRequiredService<IHttpContextAccessor>().HttpContext!;
+    var cache = services.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>();
+    const string cookieName = "vrchat-session";
+    const string sessionHeader = "X-VRChat-Session";
+    // Explicit tab sessions also work when cross-site cookies are blocked.
+    var key = context.Request.Headers[sessionHeader].FirstOrDefault()
+        ?? context.Request.Cookies[cookieName];
+    if (key != null && cache.TryGetValue(key, out object? existing) && existing is VrChatSessionService session)
+    {
+        services.GetRequiredService<ILogger<VrChatSessionService>>()
+            .LogInformation("Reused VRChat instance {InstanceId} for {Path}", session.DiagnosticId, context.Request.Path);
+        context.Response.Headers[sessionHeader] = key;
+        context.Response.Headers.CacheControl = "no-store";
+        return session;
+    }
+    var store = services.GetRequiredService<VrChatSessionStore>();
+    var saved = key != null ? store.Read(key) : null;
+    if (saved == null)
+        key = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+    var logger = services.GetRequiredService<ILogger<VrChatSessionService>>();
+    var created = new VrChatSessionService(logger, store, key!, saved);
+    logger.LogInformation("Created VRChat instance {InstanceId} for {Path}; session supplied: {Supplied}", created.DiagnosticId, context.Request.Path, !string.IsNullOrEmpty(key));
+    using (var entry = cache.CreateEntry(key))
+    {
+        entry.Value = created;
+        entry.SlidingExpiration = TimeSpan.FromMinutes(30);
+        entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(12);
+    }
+    context.Response.Cookies.Append(cookieName, key, new CookieOptions
+    {
+        HttpOnly = true, Secure = true, SameSite = SameSiteMode.None,
+        Path = "/", IsEssential = true, MaxAge = TimeSpan.FromDays(30)
+    });
+    context.Response.Headers[sessionHeader] = key;
+    context.Response.Headers.CacheControl = "no-store";
+    return created;
+});
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("react", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:5173", "http://localhost:8080", "http://127.0.0.1:8080", "http://localhost:8082", "http://127.0.0.1:8082")
+            .WithExposedHeaders("X-VRChat-Session")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
+});
+
+
+// PostgreSQL/DbContext disabled - not needed for VRChat-only features
+// builder.Services.AddDbContext<ChatDbContext>(options =>
+//     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+var jwtSettings = builder.Configuration.GetSection("Jwt");
+
+// Identity disabled - requires PostgreSQL
+// builder.Services.AddIdentity<AppUser, IdentityRole<Guid>>(options => { ... })
+//     .AddEntityFrameworkStores<ChatDbContext>().AddDefaultTokenProviders();
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateIssuerSigningKey = true,
+            ValidateLifetime = true,
+
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(jwtSettings["Key"]))
+        };
+        // only signalR
+
+      /*  options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    (path.StartsWithSegments("/chatHub") ||
+                     path.StartsWithSegments("/chatHubPrivate")))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            }
+        };*/
+    });
+
+
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = true;
+});
+
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+//builder.Services.AddSwaggerGen();
+
+
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "DashboardVRChat API",
+        Version = "v1"
+    });
+
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Enter your JWT token"
+    });
+
+    c.AddSecurityRequirement(document => new() { [new OpenApiSecuritySchemeReference("Bearer", document)] = [] });
+
+
+});
+builder.Services.AddAuthorization();
+
+var app = builder.Build();
+app.UseDeveloperExceptionPage();
+
+app.UseSwagger();
+app.UseSwaggerUI();
+
+app.UseRouting();
+app.UseCors("react");
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapGet("/", () => "DashboardVRChat API is running");
+
+app.MapPost("/vrchat/resume", async (VrChatSessionService service) =>
+{
+    var result = await service.ResumeAsync();
+    return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+});
+
+app.MapPost("/vrchat/logout", (VrChatSessionService service) => service.ForgetAsync());
+
+app.MapPost("/vrchat/login", async (
+    LoginRequest request,
+    VrChatSessionService service) =>
+{
+    var result = await service.LoginAsync(request.Username, request.Password);
+    return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+});
+
+app.MapPost("/vrchat/2fa/totp", async (
+    TwoFactorRequest request,
+    VrChatSessionService service) =>
+{
+    var result = await service.VerifyTotpAsync(request.Code);
+    return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+});
+
+app.MapPost("/vrchat/2fa/email", async (
+    TwoFactorRequest request,
+    VrChatSessionService service) =>
+{
+    var result = await service.VerifyEmailOtpAsync(request.Code);
+    return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+});
+
+app.MapGet("/vrchat/me", async (VrChatSessionService service) =>
+{
+    var result = await service.GetCurrentUserInfoAsync();
+    return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+});
+
+app.MapGet("/vrchat/getfriendlist/offset={offset}/n={n}/online={online}", async (VrChatSessionService service, int offset = 0,
+    int n = 100,
+    bool offline = false) =>
+{
+    var result = await service.GetFriendsAsync(offset,n,offline);
+    return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+});
+
+app.MapGet("/vrchat/notifications", async (VrChatSessionService service, CancellationToken cancellationToken) =>
+{
+    var result = await service.GetAppNotificationsAsync(cancellationToken);
+    return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+});
+
+app.MapPost("/vrchat/friends/{userId}/boop", async (
+    string userId, VrChatSessionService service, CancellationToken cancellationToken) =>
+{
+    var result = await service.SendBoopAsync(userId, cancellationToken);
+    return Results.Json(new { success = result.Success, error = result.Error, uncertain = result.Uncertain },
+        statusCode: result.StatusCode);
+});
+
+app.MapGet("/vrchat/worlds/{worldId}", async (
+    string worldId, VrChatSessionService service, CancellationToken cancellationToken) =>
+{
+    var result = await service.GetWorldDetailsAsync(worldId, cancellationToken);
+    return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+});
+
+app.MapGet("/vrchat/getPictureById/file={file}/id={id}", async (IFormFile file,Guid id,VrChatSessionService service) =>
+{
+    var result = await service.UploadImageToDatabaseAsync(file,id);
+    return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+});
+
+app.MapGet("/vrchat/postPicture/{id}", async (Guid id, VrChatSessionService service) =>
+{
+    IResult result = Results.Ok(service.GetImage(id));
+    return  result;
+});
+
+
+
+
+// app.MapHub<PrivateChatHub>("/chatHubPrivate"); // requires PostgreSQL
+// app.MapHub<ChatHub>("/chatHub"); // requires PostgreSQL
+// app.MapControllers(); // AuthController requires PostgreSQL
+
+app.Run();
+
+record LoginRequest(string Username, string Password);
+record TwoFactorRequest(string Code);
+
+
+
+
+
+
+

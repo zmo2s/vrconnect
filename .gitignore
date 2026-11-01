@@ -1,0 +1,51 @@
+# ===== API (ASP.NET Core) =====
+DashboardVRChat.Api/bin/
+DashboardVRChat.Api/obj/
+DashboardVRChat.Api/.vs/
+DashboardVRChat.Api/*.user
+DashboardVRChat.Api/App_Data/
+# Sensitive session/auth files - NEVER commit these
+DashboardVRChat.Api/auth.dat
+DashboardVRChat.Api/twofa.dat
+DashboardVRChat.Api/vrchat_session.json
+# Use appsettings.json as a template; put real secrets in appsettings.Development.json
+# which should not be committed
+DashboardVRChat.Api/appsettings.Development.json
+
+# ===== Frontend (Vite/React) =====
+vrchat-friends-ui/node_modules/
+vrchat-friends-ui/dist/
+vrchat-friends-ui/.env
+vrchat-friends-ui/.env.local
+vrchat-friends-ui/.env.*.local
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Editor =====
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln.DotSettings.user
+
+# Runtime session data
+DashboardVRChat.Api/App_Data/
+
+# ===== Installer build artifacts =====
+installer/build/
+installer/assets/nodejs.msi
+installer/assets/postgresql.exe
+installer/assets/dotnet-sdk.exe
+installer/assets/innosetup.exe
+installer/*.exe
+installer/launcher-src/obj/
+installer/launcher-src/bin/
+
+# ===== Secrets =====
+appsettings.Development.json
+appsettings.Production.json
+*.dat
+keys/
