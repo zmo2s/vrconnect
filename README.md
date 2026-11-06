@@ -257,13 +257,13 @@ Pull requests are welcome! Before opening one, please:
 <tr>
 <td align="center" width="200">
 <br/>
-<b>HakkerWell</b><br/>
+<b>C4R4M3L</b><br/>
 <sub>Contributor</sub>
 <br/><br/>
 </td>
 <td align="center" width="200">
 <br/>
-<b>C4R4M3L</b><br/>
+<b>HakkerWell</b><br/>
 <sub>Contributor</sub>
 <br/><br/>
 </td>
@@ -276,7 +276,7 @@ Pull requests are welcome! Before opening one, please:
 </tr>
 </table>
 
-**A huge thank you to HakkerWell, C4R4M3L and Momo** for your help and contributions to vrconnect! 💙
+**A huge thank you to C4R4M3L, HakkerWell and Momo** for your help and contributions to vrconnect! 💙
 
 <sub>Want to see your name here? Contributions of any size are appreciated.</sub>
 
