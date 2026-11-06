@@ -59,7 +59,7 @@ if not exist "vrchat-friends-ui\node_modules" (
 
 :: ---- Start API in background ----
 echo [2/3] Starting API backend...
-start "VRChat Dashboard - API" cmd /k "cd DashboardVRChat.Api && dotnet run"
+start "VRChat Dashboard - API" cmd /k "cd DashboardVRChat.Api && dotnet run --launch-profile http"
 
 :: ---- Wait for API to start ----
 echo Waiting for API to start...
@@ -73,7 +73,7 @@ echo.
 echo  =============================================
 echo   Both services are starting!
 echo.
-echo   API:      https://localhost:7154
+echo   API:      http://localhost:5000   (docs: http://localhost:5000/swagger)
 echo   Frontend: http://localhost:8080
 echo.
 echo   Close the two terminal windows to stop.

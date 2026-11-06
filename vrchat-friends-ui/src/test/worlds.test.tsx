@@ -38,7 +38,7 @@ describe("world pictures", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<QueryClientProvider client={client}><MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Index /></MemoryRouter></QueryClientProvider>);
+    render(<QueryClientProvider client={client}><MemoryRouter><Index /></MemoryRouter></QueryClientProvider>);
     const images = await screen.findAllByRole("img", { name: "Real world name world preview" });
     expect(images).toHaveLength(2);
     images.forEach(image => expect(image).toHaveAttribute("src", "https://example.com/world.png"));
@@ -52,7 +52,7 @@ it("loads live notifications after a session-based sign in without a JWT", async
   const fetchMock = vi.fn(async (url: string) => new Response(JSON.stringify({ success: true, data: url.includes("/notifications") ? { items: [], warnings: [] } : [] })));
   vi.stubGlobal("fetch", fetchMock);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(<QueryClientProvider client={client}><MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Index /></MemoryRouter></QueryClientProvider>);
+  render(<QueryClientProvider client={client}><MemoryRouter><Index /></MemoryRouter></QueryClientProvider>);
   await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => url.includes("/notifications"))).toBe(true));
   cleanup(); client.clear();
 });

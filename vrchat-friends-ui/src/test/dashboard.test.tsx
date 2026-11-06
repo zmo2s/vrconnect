@@ -8,7 +8,7 @@ beforeEach(() => localStorage.clear());
 afterEach(cleanup);
 function dashboard() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={client}><MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Index /></MemoryRouter></QueryClientProvider>);
+  return render(<QueryClientProvider client={client}><MemoryRouter><Index /></MemoryRouter></QueryClientProvider>);
 }
 describe("friends dashboard", () => {
   it("labels sample data and searches friends and worlds", () => {

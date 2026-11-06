@@ -1,14 +1,23 @@
 import { vrchatFetch } from "@/lib/vrchat-api";
+import { normalizeStatus, type VrcStatus } from "@/lib/vrc-status";
 export interface Friend {
   id: string;
   name: string;
   avatar: string;
+  /** In game. */
   online: boolean;
+  /** Connected on the VRChat website (vrchat.com), not in game. */
+  onWeb?: boolean;
   location?: string;
   worldName?: string;
   lastMessage: string;
   lastMessageTime: string;
   unread: number;
+  /** VRChat social status (Join me / Active / Ask me / Busy). */
+  status?: VrcStatus;
+  /** ISO date of the last VRChat login, used for "last seen". */
+  lastLogin?: string;
+  bio?: string;
 }
 
 export interface Message {
@@ -29,7 +38,10 @@ interface ApiResponse<T> {
 interface VrchatFriendDto {
   id: string;
   displayName: string;
-  status: number;
+  status: number | string;
+  /** "online" (in game) | "active" (website) | "offline" */
+  state?: string;
+  platform?: string;
   statusDescription: string;
   bio: string;
   location: string;
@@ -59,16 +71,21 @@ function formatLastLogin(lastLogin: string): string {
 }
 
 function mapVrchatFriendToFriend(friend: VrchatFriendDto): Friend {
+  const inGame = Boolean(friend.location) && friend.location !== "offline";
   return {
     id: friend.id,
     name: friend.displayName,
     avatar: friend.currentAvatarThumbnailImageUrl || friend.currentAvatarImageUrl,
-    online: Boolean(friend.location) && friend.location !== "offline",
+    online: inGame,
+    onWeb: !inGame && friend.state === "active",
     location: friend.location || "",
     worldName: friend.worldName,
     lastMessage: friend.statusDescription || friend.bio || "No status",
     lastMessageTime: formatLastLogin(friend.lastLogin),
     unread: 0,
+    status: normalizeStatus(friend.status),
+    lastLogin: friend.lastLogin || undefined,
+    bio: friend.bio || undefined,
   };
 }
 
@@ -93,15 +110,19 @@ export async function apiGet<T>(url: string): Promise<T> {
   return response.json();
 }
 export async function getFriends(online: boolean = true): Promise<Friend[]> {
-  const response = await apiGet<ApiResponse<VrchatFriendDto[]>>(
-    `${API_URL}/vrchat/getfriendlist/offset=0/n=100/online=${online}?offline=${!online}`
-  );
-
-  if (!response.success || !Array.isArray(response.data)) {
-    throw new Error(response.error || "Failed to load friends");
+  // VRChat returns at most 100 friends per call, so keep paging until a short page.
+  const all: VrchatFriendDto[] = [];
+  for (let offset = 0; offset < 5000; offset += 100) {
+    const response = await apiGet<ApiResponse<VrchatFriendDto[]>>(
+      `${API_URL}/vrchat/getfriendlist/offset=${offset}/n=100/online=${online}?offline=${!online}&offset=${offset}&n=100`
+    );
+    if (!response.success || !Array.isArray(response.data)) {
+      throw new Error(response.error || "Failed to load friends");
+    }
+    all.push(...response.data);
+    if (response.data.length < 100) break;
   }
-
-  return response.data.map(mapVrchatFriendToFriend);
+  return all.map(mapVrchatFriendToFriend);
 }
 /*
 export async function getFriends(online: boolean = true): Promise<Friend[]> {
@@ -123,10 +144,10 @@ export async function getMessages(
   otherUserId: string,
   currentUserId: string
 ): Promise<Message[]> {
-  const token =   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwNDI2NjU1YS0wM2MwLTQzYjctYmE4Ny03MDczMWQ3ZGZlNzAiLCJ1bmlxdWVfbmFtZSI6ImFudG9uaW4iLCJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6IjA0MjY2NTVhLTAzYzAtNDNiNy1iYTg3LTcwNzMxZDdkZmU3MCIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL25hbWUiOiJhbnRvbmluIiwiZXhwIjoxNzc3MjQyMDQ0LCJpc3MiOiJEYXNoYm9hcmRWUkNoYXQuQXBpIiwiYXVkIjoiRGFzaGJvYXJkVlJDaGF0LkNsaWVudCJ9.ZJOwKoP-0yItHxD_BsyVnKV5nyDG3NAgUOK-fAyL7Rg";
-;
+  // Use the signed-in user's token; never commit a token to the source.
+  const token = localStorage.getItem("token");
 
-  const response = await vrchatFetch(`${API_URL}/api/conversations/messages/${"5a419ef0-c3b9-4406-ad9e-abbd02fe5036"}`, {
+  const response = await vrchatFetch(`${API_URL}/api/conversations/messages/${encodeURIComponent(otherUserId)}`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },

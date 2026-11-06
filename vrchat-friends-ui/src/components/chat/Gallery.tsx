@@ -9,10 +9,10 @@ interface GalleryProps {
 const Gallery = ({ images, friendName, onClose }: GalleryProps) => {
   if (images.length === 0) {
     return (
-      <div className="flex h-full flex-col border-l border-border bg-card">
+      <div className="flex h-full flex-col bg-transparent">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h3 className="text-sm font-semibold text-foreground">Shared Photos</h3>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+          <button onClick={onClose} aria-label="Close shared photos" className="text-muted-foreground hover:text-foreground transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -24,13 +24,13 @@ const Gallery = ({ images, friendName, onClose }: GalleryProps) => {
   }
 
   return (
-    <div className="flex h-full flex-col border-l border-border bg-card">
+    <div className="flex h-full flex-col bg-transparent">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div>
           <h3 className="text-sm font-semibold text-foreground">Shared Photos</h3>
           <p className="text-xs text-muted-foreground">{images.length} photo{images.length !== 1 ? "s" : ""} with {friendName}</p>
         </div>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+        <button onClick={onClose} aria-label="Close shared photos" className="text-muted-foreground hover:text-foreground transition-colors">
           <X className="h-4 w-4" />
         </button>
       </div>

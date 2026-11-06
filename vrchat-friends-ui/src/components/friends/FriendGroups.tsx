@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Hand, Loader2, Plus, Search, Trash2, Users } from "lucide-react";
+import { Check, Download, Hand, Loader2, Plus, Search, Star, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,7 @@ import { Friend } from "@/data/mockData";
 import { BoopResult, sendBoopBatch } from "@/data/boops";
 import { FriendGroup, groupStorageKey, readGroups, saveGroups } from "@/lib/friend-groups";
 import { NotificationEvent } from "@/data/notifications";
+import { getVrchatFavoriteGroups } from "@/data/favorites";
 import { cn } from "@/lib/utils";
 
 interface Props { onNotify?: (event: NotificationEvent) => void; friends: Friend[]; demo: boolean; open: boolean; onOpenChange: (open: boolean) => void; }
@@ -22,6 +23,7 @@ export default function FriendGroups({ friends, demo, open, onOpenChange, onNoti
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [stopRequested, setStopRequested] = useState(false);
   const [results, setResults] = useState<Record<string, BoopResult>>({});
   const cancel = useRef(false);
@@ -42,6 +44,30 @@ export default function FriendGroups({ friends, demo, open, onOpenChange, onNoti
   function persist(next: FriendGroup[], message: string) {
     try { saveGroups(storageKey, next); setGroups(next); setNotice(message); setError(""); onNotify?.({ title: "Group updated", message, kind: "success" }); return true; }
     catch { setError("Your browser could not save this group. Free some browser storage and try again."); return false; }
+  }
+  /** Copies your VRChat favorite-friend groups in. Re-importing refreshes them; your own groups are untouched. */
+  async function importFromVrchat() {
+    if (demo || busy || importing) return;
+    setImporting(true); setNotice(""); setError("");
+    try {
+      const remote = await getVrchatFavoriteGroups();
+      if (!remote.length) { setNotice("No favorite-friend groups found on your VRChat account."); return; }
+      const names = new Map(friends.map(friend => [friend.id, friend.name]));
+      const previousNames = new Map(groups.flatMap(group => group.members.map(member => [member.id, member.name] as [string, string])));
+      const own = groups.filter(group => !group.id.startsWith("vrchat-"));
+      const imported: FriendGroup[] = remote.map(group => {
+        const clash = own.some(g => g.name.toLowerCase() === group.displayName.toLowerCase());
+        return {
+          id: `vrchat-${group.name}`,
+          name: (clash ? `${group.displayName} (VRChat)` : group.displayName).slice(0, 60),
+          members: group.members.map(id => ({ id, name: names.get(id) || previousNames.get(id) || id })),
+        };
+      });
+      const total = imported.reduce((sum, group) => sum + group.members.length, 0);
+      if (persist([...imported, ...own], `Imported ${imported.length} VRChat group${imported.length === 1 ? "" : "s"} with ${total} friends.`) && imported[0]) selectGroup(imported[0]);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Import failed. Check your VRChat connection and try again.");
+    } finally { setImporting(false); }
   }
   function save() {
     const trimmed = name.trim();
@@ -67,7 +93,7 @@ export default function FriendGroups({ friends, demo, open, onOpenChange, onNoti
     finally { inFlight.current = false; setBusy(false); }
   }
   return <Dialog open={open} onOpenChange={next => { if (!inFlight.current) onOpenChange(next); }}><DialogContent className="groups-dialog" onEscapeKeyDown={event => { if (busy) event.preventDefault(); }} onPointerDownOutside={event => { if (busy) event.preventDefault(); }}><DialogHeader><DialogTitle>Friends, together.</DialogTitle><DialogDescription>Create personal groups and send boops to your selected friends. Groups are saved in this browser{demo ? " for preview only" : ""}.</DialogDescription></DialogHeader>
-    <div className="groups-workspace"><aside className="saved-groups"><span className="group-section-label">YOUR GROUPS</span><Button variant="outline" onClick={() => selectGroup()} disabled={busy}><Plus /> New group</Button>{groups.length === 0 && <p>Your first group starts with a few friends.</p>}{groups.map(group => <button key={group.id} disabled={busy} className={cn("saved-group", activeGroup === group.id && "active")} onClick={() => selectGroup(group)}><Users size={16} /><span>{group.name}<small>{group.members.length} friends</small></span></button>)}</aside>
+    <div className="groups-workspace"><aside className="saved-groups"><span className="group-section-label">YOUR GROUPS</span>{groups.length > 0 && <Button variant="outline" onClick={() => selectGroup()} disabled={busy}><Plus /> New group</Button>}{!demo && <Button variant="ghost" className="import-vrchat-groups" onClick={() => void importFromVrchat()} disabled={busy || importing} title="Copy your favorite-friend groups from VRChat. Importing again refreshes them.">{importing ? <Loader2 className="animate-spin" /> : <Download />}{groups.some(group => group.id.startsWith("vrchat-")) ? "Refresh from VRChat" : "Import from VRChat"}</Button>}{groups.length === 0 && <p>Your first group starts with a few friends.</p>}{groups.map(group => <button key={group.id} disabled={busy} className={cn("saved-group", activeGroup === group.id && "active")} onClick={() => selectGroup(group)}>{group.id.startsWith("vrchat-") ? <Star size={16} className="vrchat-group-icon" /> : <Users size={16} />}<span>{group.name}<small>{group.members.length} friends{group.id.startsWith("vrchat-") && " · from VRChat"}</small></span></button>)}</aside>
     <section className="group-editor"><div className="group-name-field"><div><Label htmlFor="friend-group-name">Group name</Label><Input id="friend-group-name" placeholder="Weekend crew" value={name} maxLength={60} disabled={busy} onChange={event => setName(event.target.value)} /></div><Button variant="outline" onClick={save} disabled={busy}><Check />{activeGroup ? "Save changes" : "Save group"}</Button></div>
       <div className="group-search"><Search size={16} /><Input aria-label="Search group members" placeholder="Find friends to add…" value={search} disabled={busy} onChange={event => setSearch(event.target.value)} /></div>
       <div className="selection-controls"><span>{selected.length} selected</span><button disabled={busy || !visible.length} onClick={() => setSelected(previous => [...new Set([...previous, ...visible.map(member => member.id)])])}>Select visible</button><button disabled={busy || !selected.length} onClick={() => setSelected([])}>Clear selection</button></div>

@@ -12,6 +12,11 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// VRChat asks API clients to identify themselves with a contact (sent in the User-Agent).
+VrChatSessionService.Contact = builder.Configuration["VRChat:Contact"]
+    ?? Environment.GetEnvironmentVariable("VRCHAT_CONTACT")
+    ?? "";
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddMemoryCache();
@@ -207,6 +212,20 @@ app.MapGet("/vrchat/me", async (VrChatSessionService service) =>
     return result.Success ? Results.Ok(result) : Results.BadRequest(result);
 });
 
+// Your VRChat favorite-friend groups, for importing into the dashboard's groups
+app.MapGet("/vrchat/favorites/friend-groups", async (VrChatSessionService service, CancellationToken cancellationToken) =>
+{
+    var result = await service.GetFavoriteFriendGroupsAsync(cancellationToken);
+    return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+});
+
+// Change your own status / status message. Body: { "status": "joinme", "statusDescription": "..." }
+app.MapPost("/vrchat/me/status", async (StatusUpdateDto body, VrChatSessionService service, CancellationToken cancellationToken) =>
+{
+    var result = await service.UpdateMyStatusAsync(body.Status, body.StatusDescription, cancellationToken);
+    return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+});
+
 app.MapGet("/vrchat/getfriendlist/offset={offset}/n={n}/online={online}", async (VrChatSessionService service, int offset = 0,
     int n = 100,
     bool offline = false) =>
@@ -229,10 +248,44 @@ app.MapPost("/vrchat/friends/{userId}/boop", async (
         statusCode: result.StatusCode);
 });
 
+// Invite a friend to the instance you are currently in. Body (optional): { "message": "...", "slot": 0-11 }
+app.MapPost("/vrchat/friends/{userId}/invite", async (
+    string userId, InviteSendDto? body, VrChatSessionService service, CancellationToken cancellationToken) =>
+{
+    // "request": true is still accepted here for older clients.
+    var result = await service.SendInviteAsync(userId, body?.Request == true, body?.Message, body?.Slot, cancellationToken);
+    return Results.Json(new { success = result.Success, error = result.Error, uncertain = result.Uncertain },
+        statusCode: result.StatusCode);
+});
+
+// Ask a friend to invite you to where they are. Body (optional): { "message": "...", "slot": 0-11 }
+app.MapPost("/vrchat/friends/{userId}/request-invite", async (
+    string userId, InviteSendDto? body, VrChatSessionService service, CancellationToken cancellationToken) =>
+{
+    var result = await service.SendInviteAsync(userId, true, body?.Message, body?.Slot, cancellationToken);
+    return Results.Json(new { success = result.Success, error = result.Error, uncertain = result.Uncertain },
+        statusCode: result.StatusCode);
+});
+
+// Your saved VRChat messages. ?type=invite (default) or ?type=request  (?request=true also works)
+app.MapGet("/vrchat/invite-messages", async (string? type, bool? request, VrChatSessionService service, CancellationToken cancellationToken) =>
+{
+    var isRequest = request == true || string.Equals(type, "request", StringComparison.OrdinalIgnoreCase);
+    var result = await service.GetInviteMessagesAsync(isRequest, cancellationToken);
+    return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+});
+
 app.MapGet("/vrchat/worlds/{worldId}", async (
     string worldId, VrChatSessionService service, CancellationToken cancellationToken) =>
 {
     var result = await service.GetWorldDetailsAsync(worldId, cancellationToken);
+    return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+});
+
+app.MapGet("/vrchat/instance", async (
+    string worldId, string instanceId, VrChatSessionService service, CancellationToken cancellationToken) =>
+{
+    var result = await service.GetInstanceDetailsAsync(worldId, instanceId, cancellationToken);
     return result.Success ? Results.Ok(result) : Results.BadRequest(result);
 });
 
@@ -256,6 +309,11 @@ app.MapGet("/vrchat/postPicture/{id}", async (Guid id, VrChatSessionService serv
 // app.MapControllers(); // AuthController requires PostgreSQL
 
 app.Run();
+
+/// <summary>Body of POST /vrchat/friends/{userId}/invite and /request-invite (all fields optional).</summary>
+public record StatusUpdateDto(string? Status = null, string? StatusDescription = null);
+public record InviteSendDto(bool Request = false, string? Message = null, int? Slot = null);
+
 
 record LoginRequest(string Username, string Password);
 record TwoFactorRequest(string Code);

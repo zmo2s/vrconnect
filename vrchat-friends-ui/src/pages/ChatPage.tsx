@@ -111,11 +111,11 @@ const Index = () => {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden">
-      <div className="w-80 flex-shrink-0 flex flex-col">
+    <div className={`chat-shell flex h-screen w-screen gap-4 overflow-hidden p-4 ${selectedFriend ? "has-selection" : ""}`}>
+      <div className="chat-panel chat-list w-80 flex-shrink-0 flex flex-col">
         {friendsError && (
-          <p role="alert" className="p-3 text-sm text-destructive">
-            Unable to load friends: {friendsError}
+          <p role="alert" className="chat-alert m-3 rounded-2xl px-4 py-3 text-[13px]">
+            Couldn’t load friends: {friendsError}
           </p>
         )}
         <FriendList
@@ -125,7 +125,7 @@ const Index = () => {
         />
       </div>
 
-      <div className="flex-1 min-w-0">
+      <div className="chat-panel chat-main flex-1 min-w-0">
         {selectedFriend ? (
           <ChatArea
             friend={selectedFriend}
@@ -133,6 +133,7 @@ const Index = () => {
             onSendMessage={handleSendMessage}
             onSendImage={handleSendImage}
             onToggleGallery={() => setShowGallery((p) => !p)}
+            onBack={() => { setSelectedFriendId(null); setShowGallery(false); }}
             galleryCount={galleryImages.length}
           />
         ) : (
@@ -141,7 +142,7 @@ const Index = () => {
       </div>
 
       {showGallery && selectedFriend && (
-        <div className="w-72 flex-shrink-0">
+        <div className="chat-panel w-72 flex-shrink-0">
           <Gallery
             images={galleryImages}
             friendName={selectedFriend.name}

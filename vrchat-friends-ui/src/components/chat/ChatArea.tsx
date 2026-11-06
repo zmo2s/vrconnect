@@ -1,6 +1,7 @@
 import { Friend, Message } from "@/data/mockData";
-import { ImagePlus, Images, Send, Smile } from "lucide-react";
+import { ArrowLeft, ImagePlus, Images, Send } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
+import ChatAvatar from "@/components/chat/ChatAvatar";
 
 interface ChatAreaProps {
   friend: Friend;
@@ -8,6 +9,8 @@ interface ChatAreaProps {
   onSendMessage: (text: string) => void;
   onSendImage: (url: string) => void;
   onToggleGallery: () => void;
+  /** Small screens: return to the conversation list. */
+  onBack?: () => void;
   galleryCount: number;
 }
 
@@ -17,6 +20,7 @@ const ChatArea = ({
   onSendMessage,
   onSendImage,
   onToggleGallery,
+  onBack,
   galleryCount,
 }: ChatAreaProps) => {
   const [text, setText] = useState("");
@@ -50,14 +54,11 @@ const ChatArea = ({
   };
 
   return (
-    <div className="flex h-full flex-col bg-background">
+    <div className="flex h-full flex-col bg-transparent">
       <div className="flex items-center gap-3 border-b border-border px-5 py-3">
+        {onBack && <button onClick={onBack} aria-label="Back to conversations" className="chat-back grid h-11 w-11 place-items-center rounded-full text-muted-foreground hover:bg-muted"><ArrowLeft className="h-5 w-5" /></button>}
         <div className="relative">
-          <img
-            src={friend.avatar}
-            alt={friend.name}
-            className="h-10 w-10 rounded-full object-cover bg-muted"
-          />
+          <ChatAvatar src={friend.avatar} name={friend.name} className="h-10 w-10" />
 
           <span
             className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background ${
@@ -76,12 +77,14 @@ const ChatArea = ({
               friend.online ? "text-online" : "text-muted-foreground"
             }`}
           >
-            {friend.online ? "online" : "offline"}
+            {friend.online ? "Online" : "Offline"}
           </span>
         </div>
 
         <button
           onClick={onToggleGallery}
+          aria-label="Shared photos"
+          title="Shared photos"
           className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
         >
           <Images className="h-4 w-4" />
@@ -98,7 +101,7 @@ const ChatArea = ({
             <div
               className={`max-w-[70%] rounded-2xl px-4 py-2 ${
                 msg.isOwn
-                  ? "bg-chat-own text-foreground rounded-br-md"
+                  ? "chat-bubble-own rounded-br-md"
                   : "bg-chat-other text-foreground rounded-bl-md"
               }`}
             >
@@ -115,7 +118,7 @@ const ChatArea = ({
               )}
 
               <p
-                className={`mt-1 text-[10px] ${
+                className={`chat-time mt-1 text-xs ${
                   msg.isOwn ? "text-foreground/50" : "text-muted-foreground"
                 }`}
               >
@@ -132,6 +135,8 @@ const ChatArea = ({
         <div className="flex items-center gap-2">
           <button
             onClick={() => fileInputRef.current?.click()}
+            aria-label="Send an image"
+            title="Send an image"
             className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
           >
             <ImagePlus className="h-5 w-5" />
@@ -145,22 +150,20 @@ const ChatArea = ({
             onChange={handleFileChange}
           />
 
-          <button className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-primary">
-            <Smile className="h-5 w-5" />
-          </button>
-
           <input
             type="text"
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Write a message..."
+            aria-label={`Message ${friend.name}`}
+            placeholder={`Message ${friend.name}…`}
             className="flex-1 rounded-full bg-muted px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary"
           />
 
           <button
             onClick={handleSend}
             disabled={!text.trim()}
+            aria-label="Send message"
             className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             <Send className="h-4 w-4" />

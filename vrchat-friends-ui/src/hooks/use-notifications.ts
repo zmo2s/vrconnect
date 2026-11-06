@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { playSound, soundFor } from "@/lib/sounds";
 import { AppNotification, NotificationEvent } from "@/data/notifications";
 interface InboxState { key: string; items: AppNotification[]; readIds: string[]; dismissedIds: string[]; }
 function load(key: string): InboxState {
@@ -19,6 +20,7 @@ export function useNotifications(demo: boolean) {
     const item: AppNotification = { ...event, id: crypto.randomUUID(), createdAt: new Date().toISOString(), source: "app" };
     setState(previous => { const current = previous.key === key ? previous : load(key); return { ...current, items: [item, ...current.items].slice(0, 50) }; });
     toast(event.title, { description: event.message });
+    playSound(soundFor(event.kind, event.title));
   }, [key]);
   const markRead = useCallback((ids: string[]) => setState(previous => ({ ...previous, readIds: [...new Set([...previous.readIds, ...ids])].slice(-1000) })), []);
   const dismiss = useCallback((ids: string[]) => setState(previous => ({ ...previous, items: previous.items.filter(item => !ids.includes(item.id)), dismissedIds: [...new Set([...previous.dismissedIds, ...ids])].slice(-1000) })), []);

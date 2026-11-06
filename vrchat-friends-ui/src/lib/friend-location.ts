@@ -1,6 +1,6 @@
 import type { Friend } from "@/data/mockData";
 
-export type LocationKind = "world" | "private" | "traveling" | "offline" | "unknown";
+export type LocationKind = "world" | "private" | "traveling" | "web" | "offline" | "unknown";
 export interface FriendLocation {
   kind: LocationKind;
   title: string;
@@ -16,8 +16,9 @@ export interface FriendLocation {
 }
 
 /** Only expose the exact location supplied by VRChat; never infer a hidden destination. */
-export function getFriendLocation(friend: Pick<Friend, "location" | "worldName">): FriendLocation {
+export function getFriendLocation(friend: Pick<Friend, "location" | "worldName"> & Partial<Pick<Friend, "onWeb">>): FriendLocation {
   const raw = friend.location?.trim() || "";
+  if (friend.onWeb && (!raw || raw === "offline")) return { kind: "web", title: "On the VRChat website", detail: "Connected on vrchat.com, not in game", key: "web" };
   if (raw === "offline") return { kind: "offline", title: "Offline", detail: "Not currently in VRChat", key: "offline" };
   if (raw === "private") return { kind: "private", title: "Private location", detail: "This friend hasn’t shared their location", key: "private" };
   if (raw === "traveling" || raw === "traveling:traveling") return { kind: "traveling", title: "Changing worlds", detail: "On the way to their next destination", key: "traveling" };

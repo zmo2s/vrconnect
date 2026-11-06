@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Bell, CheckCheck, Check, CircleAlert, Inbox, RefreshCw, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,21 @@ export default function NotificationCenter({ open, onOpenChange, warnings = [], 
   const [filter, setFilter] = useState("all");
   const all = [...new Map(items.filter(item => !dismissedIds.includes(item.id)).map(item => [item.id, item])).values()].sort((a,b) => (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0));
   const unread = all.filter(item => !item.seen && !readIds.includes(item.id));
+  // Ring the bell when the unread count goes up (not on first render).
+  const [ringing, setRinging] = useState(false);
+  const previousUnread = useRef<number | null>(null);
+  useEffect(() => {
+    const count = unread.length;
+    if (previousUnread.current !== null && count > previousUnread.current) {
+      setRinging(false);
+      requestAnimationFrame(() => setRinging(true));
+    }
+    previousUnread.current = count;
+  }, [unread.length]);
+  useEffect(() => { if (!ringing) return; const id = window.setTimeout(() => setRinging(false), 1200); return () => window.clearTimeout(id); }, [ringing]);
   const filtered = filter === "unread" ? unread : filter === "all" ? all : all.filter(item => filter === "app" ? item.source === "app" : filter === "groups" ? item.category === "group" || item.typeLabel === "Group invitation" : item.category === filter);
   const visible = filtered.filter(item => [item.title, item.message, item.sender, item.groupName, item.worldName].some(value => value?.toLowerCase().includes(search.trim().toLowerCase())));
-  return <Sheet open={open} onOpenChange={onOpenChange}><SheetTrigger asChild><Button variant="ghost" size="icon" className="notification-bell" aria-label={`Notifications, ${unread.length} unread`}><Bell size={19} />{unread.length > 0 && <span className="notification-count">{unread.length > 99 ? "99+" : unread.length}</span>}</Button></SheetTrigger><SheetContent className="notification-drawer" aria-label="Notification center">
+  return <Sheet open={open} onOpenChange={onOpenChange}><SheetTrigger asChild><Button variant="ghost" size="icon" className={cn("notification-bell", ringing && "is-ringing", unread.length > 1 && "has-many")} aria-label={`Notifications, ${unread.length} unread`}><span className="bell-icon"><Bell size={19} /></span>{unread.length > 0 && <span key={unread.length} className="notification-count">{unread.length > 99 ? "99+" : unread.length}</span>}</Button></SheetTrigger><SheetContent className="notification-drawer" aria-label="Notification center">
     <div className="notification-heading"><div><SheetTitle>Notifications</SheetTitle><SheetDescription>{unread.length ? `${unread.length} unread` : "You’re all caught up"}</SheetDescription></div><Button size="icon" variant="ghost" aria-label="Refresh notifications" onClick={onRefresh} disabled={demo || loading}><RefreshCw size={16} className={cn(loading && "animate-spin")} /></Button></div>
     <div className="inbox-search"><Search size={18} /><Input autoFocus aria-label="Search notifications" placeholder="Search messages, people, or groups" value={search} onChange={event => setSearch(event.target.value)} />{search && <button aria-label="Clear notification search" onClick={() => setSearch("")}><X size={16} /></button>}</div>
     <div className="notification-controls"><div role="group" aria-label="Notification filters"><button aria-pressed={filter === "all"} onClick={() => setFilter("all")}>All</button><button aria-pressed={filter === "unread"} onClick={() => setFilter("unread")}>Unread</button>{[{ id: "invitation", label: "Invitations" }, { id: "groups", label: "Groups" }, { id: "boop", label: "Boops" }, { id: "app", label: "App" }].map(tab => <button key={tab.id} aria-pressed={filter === tab.id} onClick={() => setFilter(tab.id)}>{tab.label}</button>)}</div><button disabled={!unread.length} onClick={() => onRead(unread.map(item => item.id))}><CheckCheck size={14} /> Mark all read</button></div>
