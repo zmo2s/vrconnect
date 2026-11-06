@@ -1,89 +1,132 @@
-# VRChat Dashboard
+<div align="center">
 
-A self-hosted dashboard to see where your VRChat friends are, manage your status, and stay on top of invites and notifications — without opening the game.
+# 🧭 vrconnect
 
-> **Unofficial.** This project is not affiliated with or endorsed by VRChat Inc. It uses the VRChat API with your own account and runs entirely on your own PC.
+### Your VRChat friends, a little closer.
 
-## Features
+A self-hosted dashboard to see where your friends are, set your status,<br/>
+and keep up with invites — **without opening the game**.
 
-### Friends
-- 🟢 **Live friends list** with status dots in the same colours as VRChat (Join Me, Online, Ask Me, Do Not Disturb)
-- 🌐 **Website presence** — friends active on vrchat.com count as online and get their own "On the website" section (hollow blue ring)
-- 🌍 **Where everyone is** — friends grouped by world and instance, with the **total number of people in each instance** (not only your friends) and its capacity
-- ⭐ **Favorites**, private notes, search, location filters and sorting (online first, by place, A–Z)
-- 🕒 **Activity timeline** — who came online, changed world or status, and when
+<br/>
 
-### You
-- 🙋 **Profile button** — set your VRChat status and status message from the dashboard, with your recent messages one click away
-- 👥 **Friend groups** — create your own, or **import your VRChat favorite-friend groups** (including VRChat+ groups)
-- 👋 **Boops, invites and invite requests**, one at a time or to a whole group
+![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)
+![React 18](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![Vite 8](https://img.shields.io/badge/Vite-8-646CFF?style=for-the-badge&logo=vite&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+<br/>
+![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=flat-square&logo=windows&logoColor=white)
+![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=flat-square)
+![npm audit](https://img.shields.io/badge/npm%20audit-0%20vulnerabilities-22C55E?style=flat-square)
+![Unofficial](https://img.shields.io/badge/VRChat-unofficial%20tool-8B5CF6?style=flat-square)
 
-### Notifications
-- 🔔 Notification center for VRChat invites, requests, boops and group announcements
-- 🔊 Optional sounds and desktop notifications, with favorite-friend alerts
+<br/>
 
-### Personalisation
-- 🎨 **Accent colour** — presets or any custom colour
-- 🖼️ **Wallpaper** — your own image or a link, with darken and blur controls
-- 🌗 Light / dark / system theme, compact list, animation toggles
+<img src="docs/screenshot.png" alt="vrconnect dashboard: online friends, shared locations and world cards over a custom wallpaper" width="100%"/>
 
-## Stack
+<sub>Custom wallpaper and accent colour · friends' names blurred for privacy</sub>
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React 18 + TypeScript + Vite 8 + Tailwind CSS |
-| Backend | ASP.NET Core (.NET 10, C#) + [VRChat.API](https://github.com/vrchatapi/vrchatapi-csharp) |
-| Database | PostgreSQL |
-| Auth | JWT + ASP.NET Identity |
-| Tests | Vitest + Testing Library |
+<br/><br/>
+
+[✨ Features](#-features) · [🚀 Quick start](#-quick-start-windows) · [🔐 Security](#-security) · [🤝 Contributing](#-contributing) · [💙 Contributors](#-contributors)
+
+</div>
 
 ---
 
-## Quick Start (Windows)
+## ✨ Features
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 👥 Friends
+- 🟢 **Live friends list** with status dots in VRChat's own colours: <br/>🔵 Join Me · 🟢 Online · 🟠 Ask Me · 🔴 Do Not Disturb
+- 🌐 **Website presence**: friends on vrchat.com count as online, with their own section and a hollow blue ring
+- ⭐ **Favorites**, private notes, search, filters and sorting
+- 🕒 **Activity timeline**: who came online, changed world or status
+
+</td>
+<td width="50%" valign="top">
+
+### 🌍 Locations
+- 🗺️ **Where everyone is**: friends grouped by world and instance, with world pictures
+- 👤 **Live head-count** of everyone in the instance, not only your friends, plus its capacity
+- 🔒 Instance type and region at a glance (Friends+, Group public, Invite…)
+- ↗️ **One-click join** for instances you can enter
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### 🙋 You
+- 💬 **Set your status and status message** right from the sidebar, with your recent messages one click away
+- 👥 **Friend groups**: make your own, or **import your VRChat favorite groups** (VRChat+ groups included)
+- 👋 **Boops, invites and invite requests**, to one friend or a whole group
+
+</td>
+<td width="50%" valign="top">
+
+### 🎨 Make it yours
+- 🖼️ **Wallpaper**: your own image or a link, with darken and blur controls
+- 🎨 **Accent colour**: presets or any colour you like
+- 🌗 Light, dark or system theme · compact list · animation toggles
+- 🔔 Notification center with optional sounds and desktop alerts
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🚀 Quick start (Windows)
 
 ### Prerequisites
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- [Node.js 22.12 or newer](https://nodejs.org/) (LTS recommended)
-- [PostgreSQL](https://www.postgresql.org/download/)
+| Tool | Version |
+|------|---------|
+| [.NET SDK](https://dotnet.microsoft.com/download) | **10** |
+| [Node.js](https://nodejs.org/) | **22.12 or newer** (LTS recommended) |
+| [PostgreSQL](https://www.postgresql.org/download/) | any recent version |
 
-> Prefer not to install these yourself? See [`installer/README.md`](installer/README.md) to build a one-click Windows installer.
+> 💡 Don't want to install these yourself? Build the **one-click Windows installer**: see [`installer/README.md`](installer/README.md).
 
-### First-time Setup
+### Three steps
 
-1. **Clone or download** this repository
-2. **Run the setup script** (right-click → "Run with PowerShell"):
-   ```
-   SETUP.ps1
-   ```
-   This will:
-   - Ask for your PostgreSQL credentials
-   - Generate a secure JWT key automatically
-   - Apply database migrations
-   - Install frontend dependencies
+```powershell
+# 1. Get the code
+git clone <this repository> && cd VRChatDashboard-OpenSource
 
-3. **Launch the app**:
-   ```
-   START.bat
-   ```
-   Double-click `START.bat` — it starts both the API and frontend and opens your browser.
+# 2. First-time setup (right-click → "Run with PowerShell")
+.\SETUP.ps1
 
-### Updating
-
-After pulling a new version, reinstall the frontend packages (dependencies change between versions):
-
-```bash
-cd vrchat-friends-ui
-npm install
+# 3. Launch: starts the API + dashboard and opens your browser
+.\START.bat
 ```
 
----
+`SETUP.ps1` asks for your PostgreSQL credentials, generates a random JWT key, applies the database migrations and installs the frontend packages.
 
-## Manual Setup
+| Service | Address |
+|---------|---------|
+| 🖥️ Dashboard | http://localhost:8080 |
+| ⚙️ API | http://localhost:5000 |
+| 📖 API docs (Swagger) | http://localhost:5000/swagger |
 
-### 1. Configure the API
+### 🔄 Updating
 
-Copy `DashboardVRChat.Api/appsettings.example.json` to `appsettings.json` and fill in your values:
+After pulling a new version, reinstall the frontend packages:
+
+```bash
+cd vrchat-friends-ui && npm install
+```
+
+<details>
+<summary><b>🛠️ Manual setup</b> (without the scripts)</summary>
+
+<br/>
+
+**1. Configure the API.** Copy `DashboardVRChat.Api/appsettings.example.json` to `appsettings.json` and fill in your values:
 
 ```json
 {
@@ -96,33 +139,28 @@ Copy `DashboardVRChat.Api/appsettings.example.json` to `appsettings.json` and fi
 }
 ```
 
-> ⚠️ **Never commit real credentials** — keep your real `appsettings.json` local.
+> ⚠️ **Never commit real credentials.** Keep your real `appsettings.json` local.
 
-### 2. Apply database migrations
+**2. Apply database migrations**
 
 ```bash
 cd DashboardVRChat.Api
 dotnet ef database update
 ```
 
-### 3. Run the API
+**3. Run the API**
 
 ```bash
-cd DashboardVRChat.Api
 dotnet run
 ```
 
-The API is available at `http://localhost:5000` (Swagger docs at `http://localhost:5000/swagger`).
-
-### 4. Configure the frontend
-
-Copy `vrchat-friends-ui/.env.example` to `.env.local` (only needed if your API is not on the default address):
+**4. Configure the frontend** (only if your API isn't on the default address). Copy `vrchat-friends-ui/.env.example` to `.env.local`:
 
 ```env
 VITE_API_URL=http://localhost:5000
 ```
 
-### 5. Run the frontend
+**5. Run the frontend**
 
 ```bash
 cd vrchat-friends-ui
@@ -130,70 +168,118 @@ npm install
 npm run dev
 ```
 
-The dashboard is available at `http://localhost:8080`.
+</details>
 
-### Useful commands
+<details>
+<summary><b>⌨️ Useful commands</b></summary>
+
+<br/>
 
 ```bash
-npm run test    # run the test suite
+npm run test    # run the test suite (Vitest)
 npm run build   # production build
+npm run lint    # lint the frontend
 npm audit       # check dependencies for known vulnerabilities
 ```
 
+**In the dashboard:** <kbd>Ctrl</kbd> + <kbd>K</kbd> quick jump · <kbd>/</kbd> search
+
+</details>
+
 ---
 
-## Project Structure
+## 🧱 Stack
+
+| Layer | Technology |
+|-------|-----------|
+| 🎨 Frontend | React 18 · TypeScript · Vite 8 · Tailwind CSS · TanStack Query |
+| ⚙️ Backend | ASP.NET Core (.NET 10, C#) · [VRChat.API](https://github.com/vrchatapi/vrchatapi-csharp) |
+| 🗄️ Database | PostgreSQL |
+| 🔑 Auth | JWT · ASP.NET Identity |
+| 🧪 Tests | Vitest · Testing Library |
+
+<details>
+<summary><b>📁 Project structure</b></summary>
+
+<br/>
 
 ```
 VRChatDashboard-OpenSource/
 ├── DashboardVRChat.Api/          # ASP.NET Core backend
-│   ├── Services/Chat/            # VRChat API integration (friends, status, favorites, invites…)
+│   ├── Services/Chat/            # VRChat integration: friends, status, favorites, invites…
 │   ├── Migrations/               # Database migrations
 │   ├── appsettings.example.json  # Config template (no real secrets)
 │   └── Program.cs                # App entry point + API routes
 ├── vrchat-friends-ui/            # React frontend
 │   ├── src/
-│   │   ├── pages/                # App pages (dashboard, login)
-│   │   ├── components/           # UI: friends, profile, groups, activity, notifications…
+│   │   ├── pages/                # Dashboard and login pages
+│   │   ├── components/           # Friends, profile, groups, activity, notifications…
 │   │   ├── data/                 # Calls to the local API
 │   │   ├── lib/                  # Status colours, locations, personalisation…
 │   │   └── test/                 # Vitest tests
 │   └── .env.example              # Environment variable template
 ├── installer/                    # One-click Windows installer build
+├── docs/                         # README images
 ├── START.bat                     # Windows launcher
-├── SETUP.ps1                     # First-time setup wizard
-└── README.md                     # This file
+└── SETUP.ps1                     # First-time setup wizard
 ```
 
----
-
-## Security Notes
-
-- Everything runs **locally on your own PC** — your VRChat account is only ever sent to VRChat itself
-- Your **VRChat password and 2FA codes are never saved**. To keep you signed in, only VRChat's session cookie is stored, **encrypted** with ASP.NET Data Protection
-- JWT keys are generated randomly during setup
-- Database passwords go in your local `appsettings.json`, which should never be committed
-- The open-source repository contains **no real credentials**
-- Dependencies are kept free of known vulnerabilities (`npm audit`)
+</details>
 
 ---
 
-## Contributing
+## 🔐 Security
 
-Pull requests are welcome! Please:
-- Don't commit any credentials or session files (`auth.dat`, `twofa.dat`, `.env.local`)
-- Keep the `appsettings.json` template values as placeholders
-- Run `npm run test` in `vrchat-friends-ui` before opening a pull request
+> **Everything runs on your own PC.** Your VRChat account is only ever sent to VRChat itself.
 
-## Contributors
+- 🔑 Your **VRChat password and 2FA codes are never saved**. To keep you signed in, only VRChat's session cookie is stored, **encrypted** with ASP.NET Data Protection
+- 🎲 JWT keys are generated randomly during setup
+- 🙈 Database passwords live in your local `appsettings.json`, which should never be committed
+- 📦 The repository contains **no real credentials**, and dependencies are kept free of known vulnerabilities
 
-A big thank you to everyone who helped build this project:
+> ⚠️ **Unofficial tool.** vrconnect is not affiliated with or endorsed by VRChat Inc. It uses the VRChat API with your own account. Please use it respectfully and within [VRChat's Terms of Service](https://hello.vrchat.com/legal).
 
-- **aleonard** — creator and maintainer
-- **HakkerWell** — thank you for your help and contributions to the VRChat Dashboard! 💙
+---
 
-Want to see your name here? Contributions of any size are appreciated.
+## 🤝 Contributing
 
-## License
+Pull requests are welcome! Before opening one, please:
 
-MIT
+- ✅ Run `npm run test` in `vrchat-friends-ui`
+- 🚫 Don't commit credentials or session files (`auth.dat`, `twofa.dat`, `.env.local`)
+- 📝 Keep the `appsettings` template values as placeholders
+
+---
+
+## 💙 Contributors
+
+<table>
+<tr>
+<td align="center" width="200">
+<br/>
+<b>aleonard</b><br/>
+<sub>Creator & maintainer</sub>
+<br/><br/>
+</td>
+<td align="center" width="200">
+<br/>
+<b>HakkerWell</b><br/>
+<sub>Contributor</sub>
+<br/><br/>
+</td>
+</tr>
+</table>
+
+**A huge thank you to HakkerWell** for your help and contributions to vrconnect! 💙
+
+<sub>Want to see your name here? Contributions of any size are appreciated.</sub>
+
+---
+
+<div align="center">
+
+**MIT License** · Made with 💙 for the VRChat community
+
+<sub>If vrconnect helps you find your friends, consider giving it a ⭐</sub>
+
+</div>
