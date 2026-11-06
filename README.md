@@ -24,8 +24,6 @@ and keep up with invites — **without opening the game**.
 
 <img src="docs/screenshot.png" alt="vrconnect dashboard: online friends, shared locations and world cards over a custom wallpaper" width="100%"/>
 
-<sub>Custom wallpaper and accent colour · friends' names blurred for privacy</sub>
-
 <br/><br/>
 
 [✨ Features](#-features) · [🚀 Quick start](#-quick-start-windows) · [🔐 Security](#-security) · [🤝 Contributing](#-contributing) · [💙 Contributors](#-contributors)
