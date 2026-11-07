@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- SteamVR dashboard overlay: shows online friends and "where to go" inside the headset.
+       Reads everything from the local DashboardVRChat.Api (http://localhost:5000). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>VrConnect.Overlay</RootNamespace>
+    <AssemblyName>vrconnect-overlay</AssemblyName>
+    <!-- openvr_api.cs is Valve's generated file: don't flood the build with its warnings -->
+    <NoWarn>$(NoWarn);CS0649;CS0169;CS8618;CS8600;CS8601;CS8602;CS8603;CS8604;CS8625;CS0414</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" Version="3.116.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="OpenVR\openvr_api.dll" CopyToOutputDirectory="PreserveNewest" Link="openvr_api.dll" />
+    <None Include="manifest.vrmanifest" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

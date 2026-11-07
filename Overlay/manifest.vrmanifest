@@ -1,0 +1,17 @@
+{
+  "source": "builtin",
+  "applications": [
+    {
+      "app_key": "vrconnect.overlay",
+      "launch_type": "binary",
+      "binary_path_windows": "vrconnect-overlay.exe",
+      "is_dashboard_overlay": true,
+      "strings": {
+        "en_us": {
+          "name": "vrconnect",
+          "description": "Your VRChat friends and where to go, inside SteamVR."
+        }
+      }
+    }
+  ]
+}
