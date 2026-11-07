@@ -44,12 +44,15 @@ builder.Services.AddScoped<VrChatSessionService>(services =>
             .LogInformation("Reused VRChat instance {InstanceId} for {Path}", session.DiagnosticId, context.Request.Path);
         context.Response.Headers[sessionHeader] = key;
         context.Response.Headers.CacheControl = "no-store";
+        if (session.IsLoggedIn) OverlayAccess.Remember(key);
         return session;
     }
     var store = services.GetRequiredService<VrChatSessionStore>();
     var saved = key != null ? store.Read(key) : null;
     if (saved == null)
         key = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+    else
+        OverlayAccess.Remember(key!);
     var logger = services.GetRequiredService<ILogger<VrChatSessionService>>();
     var created = new VrChatSessionService(logger, store, key!, saved);
     logger.LogInformation("Created VRChat instance {InstanceId} for {Path}; session supplied: {Supplied}", created.DiagnosticId, context.Request.Path, !string.IsNullOrEmpty(key));
@@ -173,6 +176,17 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapGet("/", () => "DashboardVRChat API is running");
+
+// Local SteamVR overlay (Overlay project): hands it the session key the dashboard is using.
+OverlayAccess.WriteToken();
+app.MapGet("/overlay/session", (HttpContext context) =>
+{
+    if (!OverlayAccess.IsAllowed(context)) return Results.StatusCode(StatusCodes.Status403Forbidden);
+    context.Response.Headers.CacheControl = "no-store";
+    return OverlayAccess.LastSessionKey is { } key
+        ? Results.Ok(new { sessionKey = key })
+        : Results.NotFound(new { error = "Open the dashboard and sign in to VRChat first." });
+});
 
 app.MapPost("/vrchat/resume", async (VrChatSessionService service) =>
 {

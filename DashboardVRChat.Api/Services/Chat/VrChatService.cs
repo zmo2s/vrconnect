@@ -23,6 +23,8 @@ public class VrChatSessionService
     private readonly ILogger<VrChatSessionService>? _logger;
     // Diagnostic ID only; this is not an authentication token.
     public Guid DiagnosticId { get; } = Guid.NewGuid();
+    /// <summary>True once this session holds a VRChat client (saved login restored or sign-in completed).</summary>
+    public bool IsLoggedIn => _vrchat != null;
 
     private readonly VrChatSessionStore? _store;
     private readonly string? _sessionKey;

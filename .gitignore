@@ -49,3 +49,7 @@ appsettings.Development.json
 appsettings.Production.json
 *.dat
 keys/
+
+# ===== SteamVR overlay =====
+Overlay/bin/
+Overlay/obj/
