@@ -3,7 +3,7 @@ import { useQuery, useQueries } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
   MailPlus, UserPlus, Activity as ActivityIcon, AlertTriangle, ArrowUpDown, ArrowUpRight, Bell, Check, ChevronDown, ChevronRight, CircleHelp, Compass, Copy, ExternalLink, Globe2,
-  Hand, LayoutGrid, List, ListFilter, Loader2, LockKeyhole, LogIn, MapPin, RefreshCw, Search, Settings as SettingsIcon, Sparkles, Star, StickyNote, Users, X,
+  Hand, LayoutGrid, List, ListFilter, Loader2, LockKeyhole, LogIn, MapPin, RefreshCw, Search, Settings as SettingsIcon, Sparkles, Star, StickyNote, UserCheck, Users, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNowStrict } from "date-fns";
@@ -569,7 +569,11 @@ export default function Index() {
                     const label = inst
                       ? `${people} ${people === 1 ? "person" : "people"} in this instance${inst.capacity ? ` (max ${inst.capacity})` : ""} · ${friends.length} ${friends.length === 1 ? "friend" : "friends"}`
                       : `${friends.length} ${friends.length === 1 ? "friend" : "friends"} here`;
-                    return <span className="world-count" title={label}><Users size={12} />{people}{inst?.capacity ? <small className="world-count-cap">/{inst.capacity}</small> : null}</span>;
+                    // Top: everyone in the instance / max capacity. Below: how many of them are your friends.
+                    return <>
+                      <span className="world-count" title={label}><Users size={12} />{inst ? people : "?"}{inst?.capacity ? <small className="world-count-cap">/{inst.capacity}</small> : null}</span>
+                      <span className="world-count world-friends" title={`${friends.length} ${friends.length === 1 ? "friend" : "friends"} here`}><UserCheck size={12} />{friends.length}</span>
+                    </>;
                   })()}
                   <span className="world-card-body">
                     <span className="world-title"><span>{location.title}</span>{instanceFilter === location.key ? <Check size={15} className="world-check" /> : <ListFilter size={15} />}</span>

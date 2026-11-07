@@ -1574,3 +1574,37 @@ button.bg-primary:disabled { background: var(--fill-strong); color: hsl(var(--mu
 #vrc-wallpaper::after { content: ""; position: absolute; inset: 0; background: rgb(0 0 0 / var(--wallpaper-dim, .35)); }
 .has-wallpaper body { background: transparent; }
 .has-wallpaper body::before, .has-wallpaper .ambient { display: none !important; }
+
+/* Second badge under the head-count: how many of your friends are in the instance */
+.world-count.world-friends { top: 52px; }
+
+/* Group member picker: compact rows, avatar, status on the right, selected friends as chips */
+.group-chosen { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; max-height: 88px; overflow: auto; }
+.group-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 8px 0 10px; border-radius: 999px; font-size: 12px; font-weight: 500;
+  color: hsl(var(--primary)); background: hsl(var(--primary) / .14); border: 1px solid hsl(var(--primary) / .3); }
+.group-chip:hover { background: hsl(var(--primary) / .24); }
+.group-chip:disabled { opacity: .5; }
+.selection-controls .group-view { display: inline-flex; gap: 2px; margin-right: auto; padding: 2px; border-radius: 999px; background: hsl(var(--muted) / .6); }
+.selection-controls .group-view button { min-height: 32px; min-width: 0; padding: 0 12px; border-radius: 999px; color: hsl(var(--muted-foreground)); }
+.selection-controls .group-view button.active { color: hsl(var(--foreground)); background: hsl(var(--background) / .8); }
+.group-members { max-height: min(52vh, 460px); }
+.group-member { min-height: 44px; padding: 0 12px; gap: 10px; }
+.group-member.is-selected { background: hsl(var(--primary) / .1); }
+.group-member > label { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 13.5px; }
+.group-member-avatar { flex: none; width: 28px; height: 28px; border-radius: 50%; object-fit: cover; display: grid; place-items: center;
+  font-size: 12px; font-weight: 600; background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); }
+.group-member-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.group-member label small.group-member-status { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; flex: none; }
+.group-member-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: hsl(var(--muted-foreground) / .5); }
+/* VRChat status colours, shared with the friends list (--status-* tokens) */
+.group-member label small.group-member-status.status-joinme { color: hsl(var(--status-joinme-text)); }
+.group-member label small.group-member-status.status-active { color: hsl(var(--status-active-text)); }
+.group-member label small.group-member-status.status-askme { color: hsl(var(--status-askme-text)); }
+.group-member label small.group-member-status.status-busy { color: hsl(var(--status-busy-text)); }
+.group-member label small.group-member-status.status-web { color: hsl(var(--status-joinme-text)); }
+.group-member-status.status-joinme::before { background: hsl(var(--status-joinme)); }
+.group-member-status.status-active::before { background: hsl(var(--status-active)); }
+.group-member-status.status-askme::before { background: hsl(var(--status-askme)); }
+.group-member-status.status-busy::before { background: hsl(var(--status-busy)); }
+/* Website presence: hollow blue ring, like in the friends list */
+.group-member-status.status-web::before { background: transparent; box-shadow: inset 0 0 0 1.5px hsl(var(--status-joinme) / .8); }

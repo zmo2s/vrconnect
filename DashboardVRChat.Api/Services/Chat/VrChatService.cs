@@ -780,7 +780,9 @@ public class VrChatSessionService
         if (!worldId.StartsWith("wrld_", StringComparison.Ordinal) ||
             !Guid.TryParseExact(worldId[5..], "D", out _))
             return ApiResult.Fail("Invalid VRChat world ID.");
-        if (string.IsNullOrWhiteSpace(instanceId) || instanceId.Length > 512 || instanceId.Contains('/'))
+        // Only the characters VRChat uses in instance IDs, e.g. 12345~group(grp_…)~groupAccessType(public)~region(jp)
+        if (string.IsNullOrWhiteSpace(instanceId) || instanceId.Length > 512 ||
+            !System.Text.RegularExpressions.Regex.IsMatch(instanceId, @"^[A-Za-z0-9~()_:.\-]+$"))
             return ApiResult.Fail("Invalid VRChat instance ID.");
 
         if (_vrchat == null)
@@ -788,15 +790,28 @@ public class VrChatSessionService
 
         try
         {
-            var instance = await _vrchat.Instances.GetInstanceAsync(worldId, instanceId, cancellationToken);
+            // Not the SDK's GetInstanceAsync: it percent-encodes "(" and ")" and VRChat's firewall rejects that
+            // with 400 "malformed url". The ID is validated above, so it is sent as-is.
+            var (status, body) = await GetFromVrChatAsync(_vrchat, $"instances/{worldId}:{instanceId}", cancellationToken);
+            if (status is < 200 or >= 300)
+            {
+                Console.Error.WriteLine($"[instance] {worldId}:{instanceId} failed: HTTP {status} {body}");
+                return ApiResult.Fail(status == 401
+                    ? "Your VRChat session expired. Sign in again."
+                    : $"Instance details are unavailable ({VrChatErrorMessage(body) ?? $"HTTP {status}"}).");
+            }
+
+            var instance = Newtonsoft.Json.Linq.JObject.Parse(body);
+            static int ReadInt(Newtonsoft.Json.Linq.JToken? token) =>
+                token?.Type == Newtonsoft.Json.Linq.JTokenType.Integer ? (int)token : 0;
             return ApiResult.Ok(new
             {
                 worldId,
                 instanceId,
-                // userCount is the live number of players; nUsers is an older field kept as a fallback
-                userCount = Math.Max(instance.UserCount, instance.NUsers),
-                capacity = instance.Capacity,
-                full = instance.Full
+                // userCount is the live number of players; n_users is an older field kept as a fallback
+                userCount = Math.Max(ReadInt(instance["userCount"]), ReadInt(instance["n_users"])),
+                capacity = ReadInt(instance["capacity"]),
+                full = instance["full"]?.Type == Newtonsoft.Json.Linq.JTokenType.Boolean && (bool)instance["full"]!
             });
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -804,8 +819,9 @@ public class VrChatSessionService
             // The browser cancelled the request (page refresh, navigation…). Nothing to report.
             return ApiResult.Fail("Request cancelled.");
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Console.Error.WriteLine($"[instance] {worldId}:{instanceId} failed: {ex.GetType().Name}: {ex.Message}");
             return ApiResult.Fail("Instance details are unavailable. You may not have access to this instance.");
         }
     }
