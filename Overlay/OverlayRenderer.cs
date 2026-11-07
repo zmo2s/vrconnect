@@ -17,8 +17,10 @@ public static class OverlayRenderer
     private static readonly SKTypeface Regular = SKTypeface.FromFamilyName("Segoe UI") ?? SKTypeface.Default;
     private static readonly SKTypeface Bold = SKTypeface.FromFamilyName("Segoe UI", SKFontStyle.Bold) ?? SKTypeface.Default;
 
-    public static void RenderPanel(OverlayState state, string path)
+    /// <summary>Draws the panel to a PNG and returns its clickable areas.</summary>
+    public static List<HitTarget> RenderPanel(OverlayState state, string path)
     {
+        var targets = new List<HitTarget> { new(RefreshButton, ClickAction.Refresh) };
         using var surface = SKSurface.Create(new SKImageInfo(Width, Height));
         var canvas = surface.Canvas;
         canvas.Clear(Background);
@@ -36,8 +38,9 @@ public static class OverlayRenderer
         if (state.Problem != null)
         {
             DrawText(canvas, state.Problem, Width / 2f, Height / 2f, 30, Text, center: true);
+            DrawToast(canvas, state.Toast);
             Save(surface, path);
-            return;
+            return targets;
         }
 
         // Left: where to go
@@ -45,7 +48,14 @@ public static class OverlayRenderer
         var y = 170f;
         foreach (var place in state.Places.Take(4))
         {
-            DrawPlace(canvas, place, new SKRect(40, y, 640, y + 138), first: y == 170f);
+            var box = new SKRect(40, y, 640, y + 138);
+            DrawPlace(canvas, place, box, first: y == 170f);
+            // Join when you can walk in; otherwise ask a friend who is there (Busy friends block invites)
+            var asker = place.Friends.FirstOrDefault(friend => friend.Presence != Presence.Busy);
+            if (place.IsOpen && !place.IsFull)
+                targets.Add(new(DrawButton(canvas, "Join", box.Right - 20, box.Bottom - 18, Accent), ClickAction.JoinPlace, Place: place));
+            else if (asker != null)
+                targets.Add(new(DrawButton(canvas, "Ask invite", box.Right - 20, box.Bottom - 18, Line), ClickAction.AskInvite, Friend: asker));
             y += 150;
         }
         if (state.Places.Count == 0) DrawText(canvas, "None of your friends is in a public place right now.", 48, 210, 22, Muted);
@@ -54,14 +64,43 @@ public static class OverlayRenderer
         DrawText(canvas, "FRIENDS ONLINE", 690, 150, 18, Muted, bold: true);
         y = 170;
         var ordered = state.Friends.OrderBy(friend => friend.Presence).ThenBy(friend => friend.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
-        foreach (var friend in ordered.Take(11))
+        // 10 rows keep clear of the message bar at the bottom
+        foreach (var friend in ordered.Take(10))
         {
-            DrawFriend(canvas, friend, new SKRect(680, y, Width - 40, y + 52));
+            var row = new SKRect(680, y, Width - 40, y + 52);
+            // In a private world: you can only get there with an invite. Busy blocks invites.
+            var canAsk = friend.Presence is not (Presence.Busy or Presence.Web) && friend.Location == "private";
+            DrawFriend(canvas, friend, row, reserveButton: canAsk);
+            if (canAsk) targets.Add(new(DrawButton(canvas, "Ask invite", row.Right - 4, row.Bottom - 8, Line, small: true), ClickAction.AskInvite, Friend: friend));
             y += 54;
         }
-        if (ordered.Count > 11) DrawText(canvas, $"+{ordered.Count - 11} more in the dashboard", 700, y + 26, 20, Muted);
+        if (ordered.Count > 10 && state.Toast == null) DrawText(canvas, $"+{ordered.Count - 10} more in the dashboard", 700, y + 26, 20, Muted);
 
+        DrawToast(canvas, state.Toast);
         Save(surface, path);
+        return targets;
+    }
+
+    /// <summary>A pill button whose bottom-right corner is at (right, bottom). Returns its area, slightly enlarged for the laser.</summary>
+    private static SKRect DrawButton(SKCanvas canvas, string label, float right, float bottom, SKColor color, bool small = false)
+    {
+        float size = small ? 18 : 22, height = small ? 36 : 44;
+        using var font = new SKFont(Bold, size);
+        var width = font.MeasureText(label) + (small ? 28 : 40);
+        var area = new SKRect(right - width, bottom - height, right, bottom);
+        using (var fill = new SKPaint { Color = color, IsAntialias = true }) canvas.DrawRoundRect(area, height / 2, height / 2, fill);
+        DrawText(canvas, label, area.MidX, area.MidY + size * 0.36f, size, SKColors.White, bold: true, center: true);
+        area.Inflate(6, 6);
+        return area;
+    }
+
+    private static void DrawToast(SKCanvas canvas, Toast? toast)
+    {
+        if (toast == null || toast.Until < DateTimeOffset.Now) return;
+        var box = new SKRect(40, Height - 76, Width - 40, Height - 20);
+        using (var fill = new SKPaint { Color = toast.Ok ? new SKColor(0x16, 0x3D, 0x2A) : new SKColor(0x4A, 0x1C, 0x1C), IsAntialias = true })
+            canvas.DrawRoundRect(box, 18, 18, fill);
+        DrawText(canvas, Fit(toast.Text, 22, box.Width - 48), box.MidX, box.MidY + 8, 22, Text, center: true);
     }
 
     /// <summary>Small square icon SteamVR shows in its dashboard bar.</summary>
@@ -92,12 +131,14 @@ public static class OverlayRenderer
 
         var names = string.Join(", ", place.Friends.Select(friend => friend.Name).Take(3)) + (place.Friends.Count > 3 ? $" +{place.Friends.Count - 3}" : "");
         DrawDot(canvas, box.Left + 30, box.Top + 108, Active);
-        DrawText(canvas, Fit($"{place.Friends.Count} {(place.Friends.Count == 1 ? "friend" : "friends")}: {names}", 20, box.Width - 70), box.Left + 46, box.Top + 115, 20, Text);
+        // Leave room for the Join / Ask invite button on the right
+        DrawText(canvas, Fit($"{place.Friends.Count} {(place.Friends.Count == 1 ? "friend" : "friends")}: {names}", 20, box.Width - 230), box.Left + 46, box.Top + 115, 20, Text);
     }
 
-    private static void DrawFriend(SKCanvas canvas, OnlineFriend friend, SKRect row)
+    private static void DrawFriend(SKCanvas canvas, OnlineFriend friend, SKRect row, bool reserveButton = false)
     {
         using (var line = new SKPaint { Color = Line, StrokeWidth = 1 }) canvas.DrawLine(row.Left, row.Bottom, row.Right, row.Bottom, line);
+        if (reserveButton) row = new SKRect(row.Left, row.Top, row.Right - 140, row.Bottom);
         var color = friend.Presence switch { Presence.JoinMe => JoinMe, Presence.Active => Active, Presence.AskMe => AskMe, Presence.Busy => Busy, _ => JoinMe };
         DrawDot(canvas, row.Left + 18, row.MidY, color, hollow: friend.Presence == Presence.Web);
         DrawText(canvas, Fit(friend.Name, 24, 250, bold: true), row.Left + 40, row.MidY + 8, 24, Text, bold: true);

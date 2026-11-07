@@ -4,7 +4,10 @@ Your VRChat friends and **where to go**, in a `vrconnect` tab of the SteamVR das
 
 - **Where to go**: instances with friends, best first (more friends, open, room left), with the live head-count `12/32`.
 - **Friends online**: Join me first, VRChat status colours, the world each friend is in.
+- **Join** on open places with room: sends *you* an invite to that instance. Accept it from your VRChat notifications to go there.
+- **Ask invite** on friends in a private world (and on places you can't walk into): asks that friend to invite you.
 - **Refresh** button (point and click with the controller). The panel also refreshes every 20 s while it is open.
+- A message at the bottom confirms each action, or says why VRChat refused it.
 
 ## Run it
 

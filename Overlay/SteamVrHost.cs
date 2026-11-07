@@ -52,27 +52,27 @@ public sealed class SteamVrHost : IDisposable
     /// <summary>True while the user looks at our tab in the SteamVR dashboard (no need to refresh otherwise).</summary>
     public bool IsVisible => OpenVR.Overlay.IsOverlayVisible(_overlay);
 
-    public void Show(OverlayState state)
+    /// <summary>Shows a frame and returns its clickable areas.</summary>
+    public List<HitTarget> Show(OverlayState state)
     {
         // Alternate between two files: SteamVR may keep showing a cached image for an unchanged path
         var path = Path.Combine(AppContext.BaseDirectory, $"panel-{_frame++ % 2}.png");
-        OverlayRenderer.RenderPanel(state, path);
+        var targets = OverlayRenderer.RenderPanel(state, path);
         OpenVR.Overlay.SetOverlayFromFile(_overlay, path);
+        return targets;
     }
 
-    /// <summary>Handles SteamVR events. Returns false when SteamVR asks us to quit.</summary>
-    public bool PumpEvents(out bool refreshClicked)
+    /// <summary>Handles SteamVR events. Returns false when SteamVR asks us to quit; <paramref name="click"/> is the last click, in texture pixels.</summary>
+    public bool PumpEvents(out (float X, float Y)? click)
     {
-        refreshClicked = false;
+        click = null;
         var size = (uint)Marshal.SizeOf<VREvent_t>();
         var vrEvent = new VREvent_t();
         while (OpenVR.Overlay.PollNextOverlayEvent(_overlay, ref vrEvent, size))
         {
             if (vrEvent.eventType != (uint)EVREventType.VREvent_MouseButtonDown) continue;
             // SteamVR mouse coordinates start at the bottom-left; the image starts at the top-left
-            var x = vrEvent.data.mouse.x;
-            var y = OverlayRenderer.Height - vrEvent.data.mouse.y;
-            if (OverlayRenderer.RefreshButton.Contains(x, y)) refreshClicked = true;
+            click = (vrEvent.data.mouse.x, OverlayRenderer.Height - vrEvent.data.mouse.y);
         }
         while (OpenVR.System.PollNextEvent(ref vrEvent, size))
         {

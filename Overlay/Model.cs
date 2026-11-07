@@ -52,4 +52,14 @@ public sealed record Place(string WorldId, string InstanceId, string WorldName, 
 public sealed record OverlayState(IReadOnlyList<OnlineFriend> Friends, IReadOnlyList<Place> Places, DateTimeOffset UpdatedAt, string? Problem)
 {
     public static OverlayState Failed(string problem) => new([], [], DateTimeOffset.Now, problem);
+
+    /// <summary>Result of the last button press, shown at the bottom for a few seconds.</summary>
+    public Toast? Toast { get; init; }
 }
+
+public sealed record Toast(string Text, bool Ok, DateTimeOffset Until);
+
+public enum ClickAction { Refresh, JoinPlace, AskInvite }
+
+/// <summary>A clickable area of the panel, in texture pixels, and what it does.</summary>
+public sealed record HitTarget(SkiaSharp.SKRect Area, ClickAction Action, Place? Place = null, OnlineFriend? Friend = null);

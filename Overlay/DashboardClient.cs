@@ -93,6 +93,34 @@ public sealed class DashboardClient(string baseUrl = "http://localhost:5000") : 
         return body.TryGetProperty("success", out var success) && success.GetBoolean() && body.TryGetProperty("data", out var data) ? data.Clone() : null;
     }
 
+    /// <summary>Sends yourself an invite to the place: accept it from your VRChat notifications to go there.</summary>
+    public Task<(bool Ok, string Message)> JoinAsync(Place place, CancellationToken cancellationToken) =>
+        PostAsync($"/vrchat/invite-myself?worldId={Uri.EscapeDataString(place.WorldId)}&instanceId={Uri.EscapeDataString(place.InstanceId)}",
+            $"Invite to {place.WorldName} sent. Accept it in your VRChat notifications.", cancellationToken);
+
+    /// <summary>Asks a friend to invite you where they are (their world may be private).</summary>
+    public Task<(bool Ok, string Message)> AskInviteAsync(OnlineFriend friend, CancellationToken cancellationToken) =>
+        PostAsync($"/vrchat/friends/{Uri.EscapeDataString(friend.Id)}/request-invite", $"Invite request sent to {friend.Name}.", cancellationToken);
+
+    private async Task<(bool Ok, string Message)> PostAsync(string path, string success, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(new { }) };
+            request.Headers.Add("X-VRChat-Session", _sessionKey);
+            using var response = await _http.SendAsync(request, cancellationToken);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            if (body.TryGetProperty("success", out var ok) && ok.ValueKind == JsonValueKind.True) return (true, success);
+            var error = body.TryGetProperty("error", out var text) && text.ValueKind == JsonValueKind.String ? text.GetString() : null;
+            return (false, error ?? $"VRChat refused it ({(int)response.StatusCode}).");
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            // A timeout may still have reached VRChat: don't claim nothing was sent
+            return (false, "No answer from the dashboard API. Check VRChat before trying again.");
+        }
+    }
+
     private async Task<List<OnlineFriend>?> GetFriendsAsync(CancellationToken cancellationToken)
     {
         var all = new List<OnlineFriend>();
