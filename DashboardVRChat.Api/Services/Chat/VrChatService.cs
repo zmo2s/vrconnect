@@ -553,6 +553,53 @@ public class VrChatSessionService
     /// VRChat only sends saved message slots: a custom text reuses a slot that already holds it,
     /// otherwise it rewrites a slot that is off cooldown (each slot can change once per hour).
     /// </summary>
+    /// <summary>
+    /// Sends yourself an invite to an instance: it pops up in your VRChat notifications in game, accept it to go there.
+    /// Used by the SteamVR overlay's "Join" button.
+    /// </summary>
+    public async Task<(bool Success, string? Error, int StatusCode, bool Uncertain)> InviteMyselfAsync(
+        string worldId, string instanceId, CancellationToken cancellationToken = default)
+    {
+        if (!worldId.StartsWith("wrld_", StringComparison.Ordinal) || !Guid.TryParseExact(worldId[5..], "D", out _))
+            return (false, "Invalid VRChat world ID.", 400, false);
+        // Same rule as GetInstanceDetailsAsync: sent unencoded, so only VRChat's own characters are allowed
+        if (string.IsNullOrWhiteSpace(instanceId) || instanceId.Length > 512 ||
+            !System.Text.RegularExpressions.Regex.IsMatch(instanceId, @"^[A-Za-z0-9~()_:.\-]+$"))
+            return (false, "Invalid VRChat instance ID.", 400, false);
+        var client = _vrchat;
+        if (client == null)
+            return (false, "Sign in to VRChat first.", 401, false);
+        if (!await _inviteGate.WaitAsync(0, cancellationToken))
+            return (false, "Another invite is being sent. Please wait a moment.", 429, false);
+        try
+        {
+            var (status, reply) = await PostToVrChatAsync(client, $"invite/myself/to/{worldId}:{instanceId}", new { }, cancellationToken);
+            if (status is >= 200 and < 300) return (true, null, 200, false);
+            var reason = VrChatErrorMessage(reply) ?? "no reason given";
+            _logger?.LogWarning("VRChat self-invite to {WorldId}:{InstanceId} returned HTTP {Code}: {Reply}", worldId, instanceId, status, reply);
+            return status switch
+            {
+                401 => (false, "Your VRChat session expired. Sign in again.", 401, false),
+                403 => (false, "You can't join this instance (invite only, or you're not allowed in).", 403, false),
+                429 => (false, "VRChat is rate-limiting invites. Wait a minute before trying again.", 429, false),
+                >= 500 => (false, $"VRChat's servers had a problem ({status}). Check your notifications before trying again.", 502, true),
+                _ => (false, $"VRChat refused the invite ({status}): {reason}", status, false),
+            };
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return (false, "Request cancelled.", 499, false);
+        }
+        catch (HttpRequestException)
+        {
+            return (false, "Could not reach VRChat. Check your notifications before trying again.", 502, true);
+        }
+        finally
+        {
+            _inviteGate.Release();
+        }
+    }
+
     public async Task<(bool Success, string? Error, int StatusCode, bool Uncertain)> SendInviteAsync(
         string userId, bool request, string? message, int? slot, CancellationToken cancellationToken = default)
     {

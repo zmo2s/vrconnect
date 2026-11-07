@@ -281,6 +281,15 @@ app.MapPost("/vrchat/friends/{userId}/request-invite", async (
         statusCode: result.StatusCode);
 });
 
+// Send yourself an invite to an instance (shows up in your in-game notifications). Used by the SteamVR overlay.
+app.MapPost("/vrchat/invite-myself", async (
+    string worldId, string instanceId, VrChatSessionService service, CancellationToken cancellationToken) =>
+{
+    var result = await service.InviteMyselfAsync(worldId, instanceId, cancellationToken);
+    return Results.Json(new { success = result.Success, error = result.Error, uncertain = result.Uncertain },
+        statusCode: result.StatusCode);
+});
+
 // Your saved VRChat messages. ?type=invite (default) or ?type=request  (?request=true also works)
 app.MapGet("/vrchat/invite-messages", async (string? type, bool? request, VrChatSessionService service, CancellationToken cancellationToken) =>
 {
