@@ -13,7 +13,6 @@ and keep up with invites — **without opening the game**.
 ![React 18](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
 ![Vite 8](https://img.shields.io/badge/Vite-8-646CFF?style=for-the-badge&logo=vite&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
 <br/>
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=flat-square&logo=windows&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=flat-square)
@@ -86,7 +85,8 @@ and keep up with invites — **without opening the game**.
 |------|---------|
 | [.NET SDK](https://dotnet.microsoft.com/download) | **10** |
 | [Node.js](https://nodejs.org/) | **22.12 or newer** (LTS recommended) |
-| [PostgreSQL](https://www.postgresql.org/download/) | any recent version |
+
+No database to install.
 
 > 💡 Don't want to install these yourself? Build the **one-click Windows installer**: see [`installer/README.md`](installer/README.md).
 
@@ -103,7 +103,7 @@ git clone <this repository> && cd VRChatDashboard-OpenSource
 .\START.bat
 ```
 
-`SETUP.ps1` asks for your PostgreSQL credentials, generates a random JWT key, applies the database migrations and installs the frontend packages.
+`SETUP.ps1` asks for the contact email VRChat wants API tools to send (see below) and installs the frontend packages.
 
 | Service | Address |
 |---------|---------|
@@ -124,41 +124,35 @@ cd vrchat-friends-ui && npm install
 
 <br/>
 
-**1. Configure the API.** Copy `DashboardVRChat.Api/appsettings.example.json` to `appsettings.json` and fill in your values:
+**1. Configure the API.** Copy `DashboardVRChat.Api/appsettings.example.json` to `appsettings.json` and set your contact email.
+VRChat asks tools that use its API to identify themselves, and may refuse the connection (403) without it:
 
 ```json
 {
-  "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Port=5432;Database=chatdb;Username=YOUR_USER;Password=YOUR_PASSWORD"
-  },
-  "Jwt": {
-    "Key": "YOUR_RANDOM_SECRET_MIN_32_CHARS"
+  "VRChat": {
+    "Contact": "you@example.com"
   }
 }
 ```
 
-> ⚠️ **Never commit real credentials.** Keep your real `appsettings.json` local.
+Nothing else to fill in: there is no database, and the API makes its own JWT key when `Jwt:Key` is empty.
 
-**2. Apply database migrations**
+> ⚠️ Keep your real `appsettings.json` local: don't commit your email.
+
+**2. Run the API**
 
 ```bash
 cd DashboardVRChat.Api
-dotnet ef database update
-```
-
-**3. Run the API**
-
-```bash
 dotnet run
 ```
 
-**4. Configure the frontend** (only if your API isn't on the default address). Copy `vrchat-friends-ui/.env.example` to `.env.local`:
+**3. Configure the frontend** (only if your API isn't on the default address). Copy `vrchat-friends-ui/.env.example` to `.env.local`:
 
 ```env
 VITE_API_URL=http://localhost:5000
 ```
 
-**5. Run the frontend**
+**4. Run the frontend**
 
 ```bash
 cd vrchat-friends-ui
@@ -192,8 +186,7 @@ npm audit       # check dependencies for known vulnerabilities
 |-------|-----------|
 | 🎨 Frontend | React 18 · TypeScript · Vite 8 · Tailwind CSS · TanStack Query |
 | ⚙️ Backend | ASP.NET Core (.NET 10, C#) · [VRChat.API](https://github.com/vrchatapi/vrchatapi-csharp) |
-| 🗄️ Database | PostgreSQL |
-| 🔑 Auth | JWT · ASP.NET Identity |
+| 🔑 Auth | Your VRChat session, kept encrypted on your PC |
 | 🧪 Tests | Vitest · Testing Library |
 
 <details>
@@ -205,7 +198,7 @@ npm audit       # check dependencies for known vulnerabilities
 VRChatDashboard-OpenSource/
 ├── DashboardVRChat.Api/          # ASP.NET Core backend
 │   ├── Services/Chat/            # VRChat integration: friends, status, favorites, invites…
-│   ├── Migrations/               # Database migrations
+│   ├── Migrations/               # Database migrations (database currently off)
 │   ├── appsettings.example.json  # Config template (no real secrets)
 │   └── Program.cs                # App entry point + API routes
 ├── vrchat-friends-ui/            # React frontend
@@ -231,8 +224,8 @@ VRChatDashboard-OpenSource/
 > **Everything runs on your own PC.** Your VRChat account is only ever sent to VRChat itself.
 
 - 🔑 Your **VRChat password and 2FA codes are never saved**. To keep you signed in, only VRChat's session cookie is stored, **encrypted** with ASP.NET Data Protection
-- 🎲 JWT keys are generated randomly during setup
-- 🙈 Database passwords live in your local `appsettings.json`, which should never be committed
+- 🎲 The API generates a random JWT key at startup when none is set
+- 🙈 Your contact email lives in your local `appsettings.json`, which should never be committed
 - 📦 The repository contains **no real credentials**, and dependencies are kept free of known vulnerabilities
 
 > ⚠️ **Unofficial tool.** vrconnect is not affiliated with or endorsed by VRChat Inc. It uses the VRChat API with your own account. Please use it respectfully and within [VRChat's Terms of Service](https://hello.vrchat.com/legal).

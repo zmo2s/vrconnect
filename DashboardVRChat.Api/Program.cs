@@ -91,6 +91,12 @@ builder.Services.AddCors(options =>
 //     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 
+// No setup needed: when appsettings.json still has the example key (or none), sign with a random
+// key for this run. Nothing issues tokens while the database is off, so nothing is lost on restart.
+var jwtKey = jwtSettings["Key"];
+if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.StartsWith("REPLACE_", StringComparison.Ordinal) || jwtKey.Length < 32)
+    jwtSettings["Key"] = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(48));
+
 // Identity disabled - requires PostgreSQL
 // builder.Services.AddIdentity<AppUser, IdentityRole<Guid>>(options => { ... })
 //     .AddEntityFrameworkStores<ChatDbContext>().AddDefaultTokenProviders();

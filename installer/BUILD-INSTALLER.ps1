@@ -24,12 +24,10 @@ New-Item -ItemType Directory -Force -Path $assetsDir | Out-Null
 # ================================================================
 $dotnetInstaller = Join-Path $assetsDir "dotnet-sdk.exe"
 $nodeInstaller   = Join-Path $assetsDir "nodejs.msi"
-$pgInstaller     = Join-Path $assetsDir "postgresql.exe"
 
 $missing = @()
 if (-not (Test-Path $dotnetInstaller)) { $missing += "dotnet-sdk.exe" }
 if (-not (Test-Path $nodeInstaller))   { $missing += "nodejs.msi" }
-if (-not (Test-Path $pgInstaller))     { $missing += "postgresql.exe" }
 
 if ($missing.Count -gt 0) {
     Write-Host "Missing in $assetsDir :" -ForegroundColor Yellow
@@ -58,10 +56,8 @@ $frontDir     = Join-Path $rootDir "vrchat-friends-ui"
 $frontDistDir = Join-Path $buildDir "frontend"
 
 Push-Location $frontDir
-if (Test-Path "bun.lock")          { Remove-Item "bun.lock"          -Force }
-if (Test-Path "package-lock.json") { Remove-Item "package-lock.json" -Force }
-if (Test-Path "node_modules")      { Remove-Item "node_modules"      -Recurse -Force }
-cmd /c "npm install --include=dev --legacy-peer-deps 2>&1"
+# Use the committed package-lock.json as is (never delete it): install only when packages are missing
+if (-not (Test-Path "node_modules")) { cmd /c "npm ci --include=dev 2>&1" }
 $viteBin = Join-Path $frontDir "node_modules\.bin\vite.cmd"
 cmd /c "`"$viteBin`" build --outDir `"$frontDistDir`" --emptyOutDir 2>&1"
 Pop-Location
@@ -82,18 +78,23 @@ Write-Host "--- Building Launcher ---" -ForegroundColor Yellow
 $launcherExe = Join-Path $scriptDir "VRChatDashboard.exe"
 if (Test-Path $launcherExe) { Remove-Item $launcherExe -Force }
 
-# Write Program.cs fresh (Windows line endings, UTF-8)
-$programCs = Join-Path $launcherSrc "Program.cs"
-$b64 = "Ly8gVG9wLWxldmVsIHByb2dyYW0gLSAuTkVUIDYrCnZhciBhcHBEaXIgPSBBcHBEb21haW4uQ3VycmVudERvbWFpbi5CYXNlRGlyZWN0b3J5Owp2YXIgYXBpRXhlID0gUGF0aC5Db21iaW5lKGFwcERpciwgImFwaSIsICJEYXNoYm9hcmRWUkNoYXQuQXBpLmV4ZSIpOwpDb25zb2xlLlRpdGxlID0gIlZSQ2hhdCBEYXNoYm9hcmQiOwpDb25zb2xlLldyaXRlTGluZSgiU3RhcnRpbmcgVlJDaGF0IERhc2hib2FyZC4uLiIpOwp2YXIgYXBpID0gbmV3IFN5c3RlbS5EaWFnbm9zdGljcy5Qcm9jZXNzKCk7CmFwaS5TdGFydEluZm8uRmlsZU5hbWUgPSBhcGlFeGU7CmFwaS5TdGFydEluZm8uV29ya2luZ0RpcmVjdG9yeSA9IFBhdGguQ29tYmluZShhcHBEaXIsICJhcGkiKTsKYXBpLlN0YXJ0SW5mby5Vc2VTaGVsbEV4ZWN1dGUgPSBmYWxzZTsKYXBpLlN0YXJ0SW5mby5DcmVhdGVOb1dpbmRvdyA9IHRydWU7CmFwaS5TdGFydCgpOwpDb25zb2xlLldyaXRlKCJXYWl0aW5nIGZvciBBUEkiKTsKdXNpbmcgdmFyIGh0dHAgPSBuZXcgU3lzdGVtLk5ldC5IdHRwLkh0dHBDbGllbnQoKTsKaHR0cC5UaW1lb3V0ID0gVGltZVNwYW4uRnJvbVNlY29uZHMoMik7CmZvciAoaW50IGkgPSAwOyBpIDwgMzA7IGkrKykgewogICAgVGhyZWFkLlNsZWVwKDEwMDApOyBDb25zb2xlLldyaXRlKCIuIik7CiAgICB0cnkgewogICAgICAgIHZhciByID0gaHR0cC5HZXRBc3luYygiaHR0cHM6Ly9sb2NhbGhvc3Q6NzE1NC8iKS5HZXRBd2FpdGVyKCkuR2V0UmVzdWx0KCk7CiAgICAgICAgaWYgKHIuSXNTdWNjZXNzU3RhdHVzQ29kZSkgYnJlYWs7CiAgICB9IGNhdGNoIHsgfQp9CkNvbnNvbGUuV3JpdGVMaW5lKCIgcmVhZHkhIik7ClN5c3RlbS5EaWFnbm9zdGljcy5Qcm9jZXNzLlN0YXJ0KG5ldyBTeXN0ZW0uRGlhZ25vc3RpY3MuUHJvY2Vzc1N0YXJ0SW5mbygiaHR0cDovL2xvY2FsaG9zdDo3MTU0IikgeyBVc2VTaGVsbEV4ZWN1dGUgPSB0cnVlIH0pOwpDb25zb2xlLldyaXRlTGluZSgiUHJlc3MgRW50ZXIgdG8gc3RvcC4iKTsKQ29uc29sZS5SZWFkTGluZSgpOwp0cnkgeyBhcGkuS2lsbChlbnRpcmVQcm9jZXNzVHJlZTogdHJ1ZSk7IH0gY2F0Y2ggeyB9Cg=="
-$bytes = [System.Convert]::FromBase64String($b64)
-[System.IO.File]::WriteAllBytes($programCs, $bytes)
-
 # Clean and build
 if (Test-Path (Join-Path $launcherSrc "obj")) { Remove-Item (Join-Path $launcherSrc "obj") -Recurse -Force }
 if (Test-Path (Join-Path $launcherSrc "bin")) { Remove-Item (Join-Path $launcherSrc "bin") -Recurse -Force }
 
+# Build the SteamVR overlay (started by the launcher when SteamVR is installed)
+$overlayPublishDir = Join-Path $buildDir "overlay"
+$overlayProject    = Join-Path (Join-Path $rootDir "Overlay") "Overlay.csproj"
+dotnet publish "$overlayProject" --configuration Release --runtime win-x64 --self-contained true --output "$overlayPublishDir"
+Write-Host "[OK] Overlay built" -ForegroundColor Green
+
 $launcherCsproj = Join-Path $launcherSrc "launcher.csproj"
-dotnet publish "$launcherCsproj" --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true --output "$scriptDir"
+# Publish into its own folder: publishing straight into installer\ (the parent of launcher-src) makes the
+# SDK exclude every source file under it, Program.cs included (error CS5001).
+$launcherPublishDir = Join-Path $buildDir "launcher"
+dotnet publish "$launcherCsproj" --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=true --output "$launcherPublishDir"
+$publishedExe = Join-Path $launcherPublishDir "VRChatDashboard.exe"
+if (Test-Path $publishedExe) { Copy-Item $publishedExe $launcherExe -Force }
 
 if (Test-Path $launcherExe) {
     Write-Host "[OK] Launcher built" -ForegroundColor Green
@@ -150,14 +151,14 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "french";  MessagesFile: "compiler:Languages\French.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; Flags: checked
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"
 
 [Files]
 Source: "$launcherExe";      DestDir: "{app}";         Flags: ignoreversion
 Source: "$apiPublishDir\*";  DestDir: "{app}\api";     Flags: ignoreversion recursesubdirs
 Source: "$frontDistDir\*";   DestDir: "{app}\frontend"; Flags: ignoreversion recursesubdirs
+Source: "$overlayPublishDir\*"; DestDir: "{app}\overlay"; Flags: ignoreversion recursesubdirs
 Source: "$nodeInstaller";    DestDir: "{tmp}";          Flags: deleteafterinstall
-Source: "$pgInstaller";      DestDir: "{tmp}";          Flags: deleteafterinstall
 
 [Icons]
 Name: "{group}\{#MyAppName}";           Filename: "{app}\{#MyAppExe}"
@@ -166,23 +167,19 @@ Name: "{commondesktop}\{#MyAppName}";   Filename: "{app}\{#MyAppExe}"; Tasks: de
 
 [Run]
 Filename: "msiexec.exe"; Parameters: "/i ""{tmp}\nodejs.msi"" /quiet /norestart"; StatusMsg: "Installing Node.js..."; Flags: waituntilterminated
-Filename: "{tmp}\postgresql.exe"; Parameters: "--mode unattended --superpassword CHANGE_ME_DB_PASSWORD --serverport 5432 --servicename postgresql-16"; StatusMsg: "Installing PostgreSQL..."; Flags: waituntilterminated
 Filename: "{app}\{#MyAppExe}"; Description: "Launch VRChat Dashboard"; Flags: nowait postinstall skipifsilent
 
 [Code]
 procedure CurStepChanged(CurStep: TSetupStep);
-var Key, Json, FilePath, Chars: String; i: Integer;
+var Json, FilePath: String;
 begin
+  // No database and no secret: the API makes its own JWT key when Jwt:Key is empty.
   if CurStep = ssPostInstall then begin
-    Chars := 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    Randomize();
-    Key := '';
-    for i := 1 to 48 do Key := Key + Chars[(Random(Length(Chars)) + 1)];
     Json := '{' + #13#10 +
       '  "Logging": { "LogLevel": { "Default": "Information", "Microsoft.AspNetCore": "Warning" } },' + #13#10 +
       '  "AllowedHosts": "*",' + #13#10 +
-      '  "ConnectionStrings": { "DefaultConnection": "Host=localhost;Port=5432;Database=vrchatdashboard;Username=postgres;Password=CHANGE_ME_DB_PASSWORD" },' + #13#10 +
-      '  "Jwt": { "Key": "' + Key + '", "Issuer": "DashboardVRChat.Api", "Audience": "DashboardVRChat.Client" }' + #13#10 + '}';
+      '  "Jwt": { "Key": "", "Issuer": "DashboardVRChat.Api", "Audience": "DashboardVRChat.Client" },' + #13#10 +
+      '  "VRChat": { "Contact": "" }' + #13#10 + '}';
     FilePath := ExpandConstant('{app}\api\appsettings.json');
     SaveStringToFile(FilePath, Json, False);
   end;
@@ -197,10 +194,12 @@ Write-Host "[OK] installer.iss written" -ForegroundColor Green
 # ================================================================
 Write-Host ""
 Write-Host "--- Compiling .exe ---" -ForegroundColor Yellow
-Start-Process -FilePath $innoExe -ArgumentList "`"$issPath`"" -Wait -NoNewWindow
-
 $out = Join-Path $buildDir "VRChatDashboard-Installer.exe"
-if (Test-Path $out) {
+# Delete the previous installer so an old one is never reported as this build's result
+if (Test-Path $out) { Remove-Item $out -Force }
+$inno = Start-Process -FilePath $innoExe -ArgumentList "`"$issPath`"" -Wait -NoNewWindow -PassThru
+
+if ($inno.ExitCode -eq 0 -and (Test-Path $out)) {
     $size = [math]::Round((Get-Item $out).Length / 1MB, 1)
     Write-Host ""
     Write-Host "================================================" -ForegroundColor Green

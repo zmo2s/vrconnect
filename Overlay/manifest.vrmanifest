@@ -5,6 +5,7 @@
       "app_key": "vrconnect.overlay",
       "launch_type": "binary",
       "binary_path_windows": "vrconnect-overlay.exe",
+      "arguments": "--once",
       "is_dashboard_overlay": true,
       "strings": {
         "en_us": {

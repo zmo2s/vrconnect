@@ -12,7 +12,7 @@
     <RootNamespace>VrConnect.Overlay</RootNamespace>
     <AssemblyName>vrconnect-overlay</AssemblyName>
     <!-- openvr_api.cs is Valve's generated file: don't flood the build with its warnings -->
-    <NoWarn>$(NoWarn);CS0649;CS0169;CS8618;CS8600;CS8601;CS8602;CS8603;CS8604;CS8625;CS0414</NoWarn>
+    <NoWarn>$(NoWarn);CS0649;CS0169;CS8618;CS8600;CS8601;CS8602;CS8603;CS8604;CS8625;CS0414;CS8605</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

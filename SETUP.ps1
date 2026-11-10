@@ -16,7 +16,7 @@ try {
     Write-Host "[OK] .NET SDK $dotnetVersion found" -ForegroundColor Green
 } catch {
     Write-Host "[ERROR] .NET SDK not found. Please install from:" -ForegroundColor Red
-    Write-Host "  https://dotnet.microsoft.com/download/dotnet/8.0" -ForegroundColor Yellow
+    Write-Host "  https://dotnet.microsoft.com/download" -ForegroundColor Yellow
     Read-Host "Press Enter to exit"
     exit 1
 }
@@ -33,63 +33,32 @@ try {
 }
 
 # --- Configure appsettings.json ---
-$settingsPath = Join-Path $scriptDir "DashboardVRChat.Api\appsettings.json"
-Write-Host ""
-Write-Host "--- Database Configuration ---" -ForegroundColor Yellow
-Write-Host "You need a PostgreSQL database. Enter your connection details:"
-Write-Host ""
-
-$dbHost = Read-Host "DB Host [localhost]"
-if ([string]::IsNullOrEmpty($dbHost)) { $dbHost = "localhost" }
-
-$dbPort = Read-Host "DB Port [5432]"
-if ([string]::IsNullOrEmpty($dbPort)) { $dbPort = "5432" }
-
-$dbName = Read-Host "DB Name [chatdb]"
-if ([string]::IsNullOrEmpty($dbName)) { $dbName = "chatdb" }
-
-$dbUser = Read-Host "DB Username"
-$dbPass = Read-Host "DB Password" -AsSecureString
-$dbPassPlain = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
-    [Runtime.InteropServices.Marshal]::SecureStringToBSTR($dbPass))
-
-# Generate a random JWT key
-$jwtBytes = [byte[]]::new(48)
-[System.Security.Cryptography.RandomNumberGenerator]::Fill($jwtBytes)
-$jwtKey = [Convert]::ToBase64String($jwtBytes)
-
-$settings = @{
-    Logging = @{
-        LogLevel = @{
-            Default = "Information"
-            "Microsoft.AspNetCore" = "Warning"
-        }
-    }
-    AllowedHosts = "*"
-    ConnectionStrings = @{
-        DefaultConnection = "Host=$dbHost;Port=$dbPort;Database=$dbName;Username=$dbUser;Password=$dbPassPlain"
-    }
-    Jwt = @{
-        Key = $jwtKey
-        Issuer = "DashboardVRChat.Api"
-        Audience = "DashboardVRChat.Client"
-    }
+# No database and no secret to type: the API makes its own JWT key.
+# The only setting is the contact VRChat asks API tools to send (it may refuse unknown clients with 403).
+$apiDir = Join-Path $scriptDir "DashboardVRChat.Api"
+$settingsPath = Join-Path $apiDir "appsettings.json"
+if (-not (Test-Path $settingsPath)) {
+    Copy-Item (Join-Path $apiDir "appsettings.example.json") $settingsPath
 }
+
+$settings = Get-Content $settingsPath -Raw | ConvertFrom-Json
+if (-not $settings.VRChat) {
+    $settings | Add-Member -NotePropertyName VRChat -NotePropertyValue ([pscustomobject]@{ Contact = "" })
+}
+$current = $settings.VRChat.Contact
+
+Write-Host ""
+Write-Host "--- VRChat contact ---" -ForegroundColor Yellow
+Write-Host "VRChat asks tools that use its API to identify themselves with a contact email."
+Write-Host "It is only sent to VRChat, and stays in your local appsettings.json."
+Write-Host ""
+$prompt = "Your email"
+if ($current) { $prompt += " [$current]" }
+$contact = Read-Host $prompt
+if ($contact) { $settings.VRChat.Contact = $contact.Trim() }
 
 $settings | ConvertTo-Json -Depth 5 | Set-Content $settingsPath -Encoding UTF8
 Write-Host "[OK] appsettings.json configured" -ForegroundColor Green
-
-# --- Apply DB Migrations ---
-Write-Host ""
-Write-Host "--- Applying Database Migrations ---" -ForegroundColor Yellow
-Set-Location (Join-Path $scriptDir "DashboardVRChat.Api")
-try {
-    dotnet ef database update
-    Write-Host "[OK] Database migrations applied" -ForegroundColor Green
-} catch {
-    Write-Host "[WARNING] Could not apply migrations automatically." -ForegroundColor Yellow
-    Write-Host "  Run manually: cd DashboardVRChat.Api && dotnet ef database update" -ForegroundColor Gray
-}
 
 # --- Install frontend deps ---
 Write-Host ""

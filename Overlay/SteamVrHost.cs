@@ -10,8 +10,16 @@ namespace VrConnect.Overlay;
 public sealed class SteamVrHost : IDisposable
 {
     private const string Key = "vrconnect.overlay";
-    private ulong _overlay, _thumbnail;
-    private int _frame;
+    private ulong _overlay, _thumbnail, _alert;
+    private int _frame, _alertFrame;
+    private DateTimeOffset _alertUntil = DateTimeOffset.MinValue;
+    private readonly Queue<Alert> _alerts = new();
+
+    /// <summary>True when the last TryStart failed because another copy already owns the overlay.</summary>
+    public static bool AlreadyRunning { get; private set; }
+
+    /// <summary>SteamVR's server process. Checked before OpenVR.Init, which would otherwise start SteamVR itself.</summary>
+    public static bool IsSteamVrRunning() => System.Diagnostics.Process.GetProcessesByName("vrserver").Length > 0;
 
     public static bool TryStart(out SteamVrHost? host, out string error)
     {
@@ -30,7 +38,9 @@ public sealed class SteamVrHost : IDisposable
         var result = OpenVR.Overlay.CreateDashboardOverlay(Key, "vrconnect", ref created._overlay, ref created._thumbnail);
         if (result != EVROverlayError.None)
         {
-            error = $"Could not create the overlay: {OpenVR.Overlay.GetOverlayErrorNameFromEnum(result)}";
+            AlreadyRunning = result == EVROverlayError.KeyInUse;
+            error = AlreadyRunning ? "The vrconnect overlay is already running in SteamVR."
+                : $"Could not create the overlay: {OpenVR.Overlay.GetOverlayErrorNameFromEnum(result)}";
             OpenVR.Shutdown();
             return false;
         }
@@ -39,6 +49,16 @@ public sealed class SteamVrHost : IDisposable
         OpenVR.Overlay.SetOverlayInputMethod(created._overlay, VROverlayInputMethod.Mouse);
         var scale = new HmdVector2_t { v0 = OverlayRenderer.Width, v1 = OverlayRenderer.Height };
         OpenVR.Overlay.SetOverlayMouseScale(created._overlay, ref scale);
+        // Thumbstick / trackpad scrolling while pointing at the panel
+        OpenVR.Overlay.SetOverlayFlag(created._overlay, VROverlayFlags.SendVRDiscreteScrollEvents, true);
+
+        // Alert banner: a separate overlay locked to the headset, a little below eye level, hidden until needed
+        if (OpenVR.Overlay.CreateOverlay("vrconnect.alert", "vrconnect alerts", ref created._alert) == EVROverlayError.None)
+        {
+            OpenVR.Overlay.SetOverlayWidthInMeters(created._alert, 0.42f);
+            var inFront = new HmdMatrix34_t { m0 = 1, m5 = 1, m10 = 1, m3 = 0, m7 = -0.16f, m11 = -0.75f };
+            OpenVR.Overlay.SetOverlayTransformTrackedDeviceRelative(created._alert, OpenVR.k_unTrackedDeviceIndex_Hmd, ref inFront);
+        }
 
         var thumbnail = Path.Combine(AppContext.BaseDirectory, "thumbnail.png");
         OverlayRenderer.RenderThumbnail(thumbnail);
@@ -52,27 +72,63 @@ public sealed class SteamVrHost : IDisposable
     /// <summary>True while the user looks at our tab in the SteamVR dashboard (no need to refresh otherwise).</summary>
     public bool IsVisible => OpenVR.Overlay.IsOverlayVisible(_overlay);
 
+    /// <summary>Avatars and world pictures to draw, when already downloaded.</summary>
+    public ImageCache? Images { get; set; }
+
+    /// <summary>The list picked on the left and its scroll position.</summary>
+    public PanelView View { get; } = new();
+
     /// <summary>Shows a frame and returns its clickable areas.</summary>
     public List<HitTarget> Show(OverlayState state)
     {
         // Alternate between two files: SteamVR may keep showing a cached image for an unchanged path
         var path = Path.Combine(AppContext.BaseDirectory, $"panel-{_frame++ % 2}.png");
-        var targets = OverlayRenderer.RenderPanel(state, path);
+        var targets = OverlayRenderer.RenderPanel(state, View, path, Images);
         OpenVR.Overlay.SetOverlayFromFile(_overlay, path);
         return targets;
     }
 
-    /// <summary>Handles SteamVR events. Returns false when SteamVR asks us to quit; <paramref name="click"/> is the last click, in texture pixels.</summary>
-    public bool PumpEvents(out (float X, float Y)? click)
+    public void Enqueue(IEnumerable<Alert> alerts)
     {
-        click = null;
+        foreach (var alert in alerts) _alerts.Enqueue(alert);
+    }
+
+    /// <summary>Call often: shows queued alerts one after another, 6 seconds each, then hides the banner.</summary>
+    public void TickAlerts()
+    {
+        if (_alert == 0 || DateTimeOffset.Now < _alertUntil) return;
+        if (_alerts.TryDequeue(out var next))
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, $"alert-{_alertFrame++ % 2}.png");
+            OverlayRenderer.RenderAlert(next, path);
+            OpenVR.Overlay.SetOverlayFromFile(_alert, path);
+            OpenVR.Overlay.ShowOverlay(_alert);
+            _alertUntil = DateTimeOffset.Now.AddSeconds(6);
+        }
+        else if (_alertUntil != DateTimeOffset.MinValue)
+        {
+            OpenVR.Overlay.HideOverlay(_alert);
+            _alertUntil = DateTimeOffset.MinValue;
+        }
+    }
+
+    /// <summary>Handles SteamVR events. Returns false when SteamVR asks us to quit; <paramref name="inputs"/> gets the laser input, in texture pixels.</summary>
+    public bool PumpEvents(List<PanelInput> inputs)
+    {
         var size = (uint)Marshal.SizeOf<VREvent_t>();
         var vrEvent = new VREvent_t();
         while (OpenVR.Overlay.PollNextOverlayEvent(_overlay, ref vrEvent, size))
         {
-            if (vrEvent.eventType != (uint)EVREventType.VREvent_MouseButtonDown) continue;
             // SteamVR mouse coordinates start at the bottom-left; the image starts at the top-left
-            click = (vrEvent.data.mouse.x, OverlayRenderer.Height - vrEvent.data.mouse.y);
+            var x = vrEvent.data.mouse.x;
+            var y = OverlayRenderer.Height - vrEvent.data.mouse.y;
+            switch ((EVREventType)vrEvent.eventType)
+            {
+                case EVREventType.VREvent_MouseButtonDown: inputs.Add(new(PanelInputKind.Down, x, y)); break;
+                case EVREventType.VREvent_MouseButtonUp: inputs.Add(new(PanelInputKind.Up, x, y)); break;
+                case EVREventType.VREvent_MouseMove: inputs.Add(new(PanelInputKind.Move, x, y)); break;
+                case EVREventType.VREvent_ScrollDiscrete: inputs.Add(new(PanelInputKind.Scroll, 0, 0, vrEvent.data.scroll.ydelta)); break;
+            }
         }
         while (OpenVR.System.PollNextEvent(ref vrEvent, size))
         {
@@ -97,6 +153,7 @@ public sealed class SteamVrHost : IDisposable
 
     public void Dispose()
     {
+        if (_alert != 0) OpenVR.Overlay.DestroyOverlay(_alert);
         if (_overlay != 0) OpenVR.Overlay.DestroyOverlay(_overlay);
         OpenVR.Shutdown();
     }

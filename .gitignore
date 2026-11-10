@@ -53,3 +53,5 @@ keys/
 # ===== SteamVR overlay =====
 Overlay/bin/
 Overlay/obj/
+Overlay.Tests/bin/
+Overlay.Tests/obj/

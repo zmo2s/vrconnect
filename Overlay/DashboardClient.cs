@@ -15,7 +15,7 @@ public sealed class DashboardClient(string baseUrl = "http://localhost:5000") : 
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VRChatDashboard", "overlay-token");
 
     private readonly HttpClient _http = new() { BaseAddress = new Uri(baseUrl), Timeout = TimeSpan.FromSeconds(15) };
-    private readonly Dictionary<string, string> _worldNames = new();
+    private readonly Dictionary<string, (string Name, string? Thumbnail)> _worlds = new();
     private readonly Dictionary<string, (int? People, int? Capacity, DateTimeOffset At)> _instances = new();
     private string? _sessionKey;
 
@@ -34,17 +34,18 @@ public sealed class DashboardClient(string baseUrl = "http://localhost:5000") : 
                 return OverlayState.Failed("Could not read your friends. Open the dashboard and check you are signed in.");
             }
 
-            // Name the worlds friends are in (cached: names don't change)
-            foreach (var worldId in friends.Select(friend => friend.Instance?.WorldId).OfType<string>().Distinct().Where(id => !_worldNames.ContainsKey(id)).Take(12))
-                _worldNames[worldId] = await GetWorldNameAsync(worldId, cancellationToken) ?? "Unknown world";
-            friends = friends.Select(friend => friend.Instance is { } instance && _worldNames.TryGetValue(instance.WorldId, out var name) ? friend with { WorldName = name } : friend).ToList();
+            // Name the worlds friends are in, with their picture (cached: they don't change)
+            foreach (var worldId in friends.Select(friend => friend.Instance?.WorldId).OfType<string>().Distinct().Where(id => !_worlds.ContainsKey(id)).Take(25))
+                _worlds[worldId] = await GetWorldAsync(worldId, cancellationToken) ?? ("Unknown world", null);
+            friends = friends.Select(friend => friend.Instance is { } instance && _worlds.TryGetValue(instance.WorldId, out var world) ? friend with { WorldName = world.Name } : friend).ToList();
 
             var places = friends.Where(friend => friend.Instance != null)
                 .GroupBy(friend => friend.Location!)
                 .Select(group =>
                 {
                     var (worldId, instanceId) = group.First().Instance!.Value;
-                    return new Place(worldId, instanceId, _worldNames.GetValueOrDefault(worldId, "Unknown world"), Place.AccessOf(instanceId), Place.RegionOf(instanceId), group.ToList(), null, null);
+                    var world = _worlds.GetValueOrDefault(worldId, ("Unknown world", null));
+                    return new Place(worldId, instanceId, world.Name, Place.AccessOf(instanceId), Place.RegionOf(instanceId), group.ToList(), null, null, world.Thumbnail);
                 })
                 .OrderByDescending(place => place.Friends.Count).Take(6).ToList();
 
@@ -58,7 +59,12 @@ public sealed class DashboardClient(string baseUrl = "http://localhost:5000") : 
                 places[i] = places[i] with { People = known.People, Capacity = known.Capacity };
             }
 
-            return new OverlayState(friends, places.OrderByDescending(place => place.Score).ToList(), DateTimeOffset.Now, null);
+            foreach (var friend in friends) _names[friend.Id] = friend.Name;
+            await RefreshGroupsAsync(cancellationToken);
+            return new OverlayState(friends, places.OrderByDescending(place => place.Score).ToList(), DateTimeOffset.Now, null)
+            {
+                Groups = FriendGroup.Build(_groups, friends, _names),
+            };
         }
         catch (HttpRequestException)
         {
@@ -91,6 +97,54 @@ public sealed class DashboardClient(string baseUrl = "http://localhost:5000") : 
         using var response = await _http.SendAsync(request, cancellationToken);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
         return body.TryGetProperty("success", out var success) && success.GetBoolean() && body.TryGetProperty("data", out var data) ? data.Clone() : null;
+    }
+
+    private List<(string Key, string Name, IReadOnlyList<string> Members)> _groups = new();
+    private HashSet<string> _favorites = new();
+    private readonly Dictionary<string, string> _names = new();
+    private DateTimeOffset _groupsAt = DateTimeOffset.MinValue;
+
+    /// <summary>Your VRChat favorite friends (members of your favorite groups), refreshed every 10 minutes.</summary>
+    public async Task<IReadOnlySet<string>> GetFavoritesAsync(CancellationToken cancellationToken)
+    {
+        await RefreshGroupsAsync(cancellationToken);
+        return _favorites;
+    }
+
+    /// <summary>Reads your favorite-friend groups, and the names of offline friends to list them (every 10 minutes).</summary>
+    private async Task RefreshGroupsAsync(CancellationToken cancellationToken)
+    {
+        if (_sessionKey == null || DateTimeOffset.Now - _groupsAt < TimeSpan.FromMinutes(10)) return;
+        try
+        {
+            if (await GetDataAsync("/vrchat/favorites/friend-groups", cancellationToken) is not { ValueKind: JsonValueKind.Array } groups) return;
+            _groups = groups.EnumerateArray()
+                .Where(group => group.TryGetProperty("members", out var members) && members.ValueKind == JsonValueKind.Array)
+                .Select(group =>
+                {
+                    var key = group.TryGetProperty("name", out var name) ? name.GetString() ?? "" : "";
+                    var shown = group.TryGetProperty("displayName", out var display) && display.ValueKind == JsonValueKind.String ? display.GetString() : null;
+                    IReadOnlyList<string> members = group.GetProperty("members").EnumerateArray().Select(member => member.GetString()).OfType<string>().ToList();
+                    // Unnamed VRChat groups come back as "group_0", "group_1"…: show them like VRChat does
+                    if (string.IsNullOrWhiteSpace(shown) || shown == key)
+                        shown = key.StartsWith("group_", StringComparison.Ordinal) && int.TryParse(key[6..], out var index) ? $"Favorites {index + 1}" : key;
+                    return ("group:" + key, shown!, members);
+                }).ToList();
+            _favorites = _groups.SelectMany(group => group.Members).ToHashSet();
+            _groupsAt = DateTimeOffset.Now;
+
+            // Offline friends' names (the online list only has who is connected). VRChat pages them 100 at a time.
+            if (_favorites.All(_names.ContainsKey)) return;
+            for (var offset = 0; offset < 2000; offset += 100)
+            {
+                if (await GetDataAsync($"/vrchat/getfriendlist/offset={offset}/n=100/online=false?offline=true", cancellationToken) is not { ValueKind: JsonValueKind.Array } page) break;
+                foreach (var friend in page.EnumerateArray())
+                    if (friend.TryGetProperty("id", out var id) && friend.TryGetProperty("displayName", out var name) && id.GetString() is { } key && name.GetString() is { } shown)
+                        _names[key] = shown;
+                if (page.GetArrayLength() < 100 || _favorites.All(_names.ContainsKey)) break;
+            }
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or InvalidOperationException or TaskCanceledException && !cancellationToken.IsCancellationRequested) { }
     }
 
     /// <summary>Sends yourself an invite to the place: accept it from your VRChat notifications to go there.</summary>
@@ -137,15 +191,20 @@ public sealed class DashboardClient(string baseUrl = "http://localhost:5000") : 
                     "JoinMe" => Presence.JoinMe, "AskMe" => Presence.AskMe, "Busy" => Presence.Busy, _ => Presence.Active,
                 };
                 all.Add(new OnlineFriend(friend.GetProperty("id").GetString()!, friend.GetProperty("displayName").GetString() ?? "?",
-                    presence, friend.TryGetProperty("location", out var location) ? location.GetString() : null, null));
+                    presence, friend.TryGetProperty("location", out var location) ? location.GetString() : null, null,
+                    friend.TryGetProperty("currentAvatarThumbnailImageUrl", out var avatar) && avatar.ValueKind == JsonValueKind.String ? avatar.GetString() : null));
             }
             if (page.GetArrayLength() < 100) break;
         }
         return all;
     }
 
-    private async Task<string?> GetWorldNameAsync(string worldId, CancellationToken cancellationToken) =>
-        await GetDataAsync($"/vrchat/worlds/{Uri.EscapeDataString(worldId)}", cancellationToken) is { } world && world.TryGetProperty("name", out var name) ? name.GetString() : null;
+    private async Task<(string Name, string? Thumbnail)?> GetWorldAsync(string worldId, CancellationToken cancellationToken)
+    {
+        if (await GetDataAsync($"/vrchat/worlds/{Uri.EscapeDataString(worldId)}", cancellationToken) is not { } world) return null;
+        string? Read(string property) => world.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+        return Read("name") is { } name ? (name, Read("thumbnailImageUrl")) : null;
+    }
 
     private async Task<(int? People, int? Capacity)?> GetInstanceAsync(string worldId, string instanceId, CancellationToken cancellationToken)
     {
