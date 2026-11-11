@@ -1,7 +1,7 @@
-import { useRef, useState } from "react";
-import { Check, CircleHelp, ImagePlus, Link2, Play, Trash2, Volume1, Volume2, VolumeX } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, CircleHelp, Film, ImagePlus, Link2, Play, Trash2, Volume1, Volume2, VolumeX } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { accentPresets, imageFileToDataUrl, useAccent, useWallpaper } from "@/lib/personalize";
+import { accentPresets, imageFileToDataUrl, isVideoFile, resolveWallpaperUrl, useAccent, useWallpaper } from "@/lib/personalize";
 import { Slider } from "@/components/ui/slider";
 import { playSound } from "@/lib/sounds";
 import { Button } from "@/components/ui/button";
@@ -28,18 +28,39 @@ export default function SettingsDialog({ open, onOpenChange, settings, onChange,
   const supported = typeof Notification !== "undefined";
   const [permission, setPermission] = useState(() => (supported ? Notification.permission : "denied"));
   const [accent, setAccent] = useAccent();
-  const [wallpaper, setWallpaper] = useWallpaper();
+  const [wallpaper, setWallpaper, setLocalVideo] = useWallpaper();
   const [wallpaperLink, setWallpaperLink] = useState("");
   const [wallpaperError, setWallpaperError] = useState("");
   const [wallpaperBusy, setWallpaperBusy] = useState(false);
+  const [wallpaperStep, setWallpaperStep] = useState("");
+  const [previewUrl, setPreviewUrl] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
+  const videoInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let live = true;
+    setPreviewUrl("");
+    if (!open || !wallpaper.src) return;
+    void resolveWallpaperUrl(wallpaper.src).then(url => { if (live) setPreviewUrl(url); });
+    return () => { live = false; };
+  }, [open, wallpaper.src]);
 
   async function pickWallpaper(file?: File) {
-    if (!file) return;
-    setWallpaperBusy(true); setWallpaperError("");
-    try { setWallpaperError(setWallpaper({ src: await imageFileToDataUrl(file) }) || ""); }
-    catch (error) { setWallpaperError(error instanceof Error ? error.message : "This image couldn't be used."); }
-    finally { setWallpaperBusy(false); if (fileInput.current) fileInput.current.value = ""; }
+    if (!file) { console.info("[wallpaper] no file picked"); return; }
+    setWallpaperBusy(true); setWallpaperError(""); setWallpaperStep("Opening the file…");
+    try {
+      const error = isVideoFile(file) ? await setLocalVideo(file, setWallpaperStep) : setWallpaper({ src: await imageFileToDataUrl(file) });
+      setWallpaperError(error || "");
+    }
+    catch (error) {
+      console.warn("[wallpaper] failed", error);
+      setWallpaperError(error instanceof Error ? error.message : "This file couldn't be used.");
+    }
+    finally {
+      setWallpaperBusy(false); setWallpaperStep("");
+      if (fileInput.current) fileInput.current.value = "";
+      if (videoInput.current) videoInput.current.value = "";
+    }
   }
   function applyLink() {
     const link = wallpaperLink.trim();
@@ -95,19 +116,25 @@ export default function SettingsDialog({ open, onOpenChange, settings, onChange,
           </div>
 
           <div className="settings-row settings-row-stack">
-            <div><Label>Wallpaper</Label><p>Your own picture behind the dashboard. Saved only in this browser.</p></div>
+            <div><Label>Wallpaper</Label><p>Your own picture or looping video (MP4, WebM) behind the dashboard. Saved only in this browser.</p></div>
             <div className="wallpaper-controls">
-              {wallpaper.src && <div className="wallpaper-preview" style={{ backgroundImage: `url("${wallpaper.src.replace(/"/g, "%22")}")` }} />}
+              {wallpaper.src && (wallpaper.kind === "video"
+                ? <div className="wallpaper-preview">{previewUrl && <video src={previewUrl} muted loop autoPlay playsInline
+                    onError={() => setWallpaperError("This video can't be played here. Try an MP4 (H.264) or WebM file.")} />}</div>
+                : <div className="wallpaper-preview" style={{ backgroundImage: `url("${wallpaper.src.replace(/"/g, "%22")}")` }} />)}
               <div className="wallpaper-buttons">
-                <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={event => void pickWallpaper(event.target.files?.[0])} />
-                <Button type="button" variant="outline" size="sm" disabled={wallpaperBusy} onClick={() => fileInput.current?.click()}><ImagePlus /> {wallpaper.src ? "Change image" : "Choose image"}</Button>
+                <input ref={fileInput} type="file" accept=".png,.jpg,.jpeg,.webp,.gif" hidden onChange={event => void pickWallpaper(event.target.files?.[0])} />
+                <input ref={videoInput} type="file" accept=".mp4,.webm,.m4v,.mov" hidden onChange={event => void pickWallpaper(event.target.files?.[0])} />
+                <Button type="button" variant="outline" size="sm" disabled={wallpaperBusy} onClick={() => fileInput.current?.click()}><ImagePlus /> Choose image</Button>
+                <Button type="button" variant="outline" size="sm" disabled={wallpaperBusy} onClick={() => videoInput.current?.click()}><Film /> {wallpaperBusy ? "Saving…" : "Choose video (MP4)"}</Button>
                 {wallpaper.src && <Button type="button" variant="ghost" size="sm" onClick={() => { setWallpaper({ src: "" }); setWallpaperError(""); }}><Trash2 /> Remove</Button>}
               </div>
               <form className="wallpaper-link" onSubmit={event => { event.preventDefault(); applyLink(); }}>
                 <Link2 size={15} />
-                <Input aria-label="Wallpaper image link" placeholder="…or paste an image link (https://)" value={wallpaperLink} onChange={event => setWallpaperLink(event.target.value)} />
+                <Input aria-label="Wallpaper image or video link" placeholder="…or paste an image or .mp4 link (https://)" value={wallpaperLink} onChange={event => setWallpaperLink(event.target.value)} />
                 <Button type="submit" size="sm" variant="outline" disabled={!wallpaperLink.trim()}>Use</Button>
               </form>
+              {wallpaperStep && <p className="wallpaper-step" role="status">{wallpaperStep}</p>}
               {wallpaperError && <p className="wallpaper-error" role="alert">{wallpaperError}</p>}
               {wallpaper.src && <>
                 <div className="wallpaper-slider"><span>Darken</span>

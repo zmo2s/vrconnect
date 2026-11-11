@@ -146,6 +146,10 @@ sealed class MainWindow : Form
             OpenExternal(args.Uri);
         };
 
+        // The installed app and START.bat (--dev) share this profile and http://localhost:8080:
+        // drop cached pages so one never shows the other's old interface.
+        try { await core.Profile.ClearBrowsingDataAsync(CoreWebView2BrowsingDataKinds.DiskCache); } catch { }
+
         core.Navigate(FrontUrl);
         web.Visible = true;
         status.Visible = false;
@@ -202,8 +206,15 @@ sealed class MainWindow : Form
 
         var files = new PhysicalFileProvider(frontendDir);
         app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = files });
-        app.UseStaticFiles(new StaticFileOptions { FileProvider = files });
-        app.MapFallbackToFile("index.html", new StaticFileOptions { FileProvider = files });
+        // index.html must always be checked again, or an update (or START.bat) keeps showing the old interface.
+        // The hashed files in /assets can be cached.
+        static void NoCacheHtml(Microsoft.AspNetCore.StaticFiles.StaticFileResponseContext ctx)
+        {
+            if (ctx.File.Name.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+                ctx.Context.Response.Headers.CacheControl = "no-cache";
+        }
+        app.UseStaticFiles(new StaticFileOptions { FileProvider = files, OnPrepareResponse = NoCacheHtml });
+        app.MapFallbackToFile("index.html", new StaticFileOptions { FileProvider = files, OnPrepareResponse = NoCacheHtml });
 
         _ = app.RunAsync();
         return app;
