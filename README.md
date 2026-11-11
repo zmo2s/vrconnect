@@ -248,7 +248,7 @@ Pull requests are welcome! Before opening one, please:
 <tr>
 <td align="center" width="200">
 <br/>
-<b>C4R4M3L</b><br/>
+<b>CARAMEL</b><br/>
 <sub>Contributor</sub>
 <br/><br/>
 </td>

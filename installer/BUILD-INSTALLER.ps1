@@ -170,18 +170,48 @@ Filename: "msiexec.exe"; Parameters: "/i ""{tmp}\nodejs.msi"" /quiet /norestart"
 Filename: "{app}\{#MyAppExe}"; Description: "Launch VRChat Dashboard"; Flags: nowait postinstall skipifsilent
 
 [Code]
-procedure CurStepChanged(CurStep: TSetupStep);
-var Json, FilePath: String;
+// User data lives in %LOCALAPPDATA%\VRChatDashboard (VRChat session, keys, window profile, settings.json).
+// The uninstaller only removes what it installed, so all of it is still there after a reinstall.
+var ContactPage: TInputQueryWizardPage;
+
+function UserSettingsPath: String;
 begin
-  // No database and no secret: the API makes its own JWT key when Jwt:Key is empty.
+  Result := ExpandConstant('{localappdata}\VRChatDashboard\settings.json');
+end;
+
+procedure InitializeWizard;
+begin
+  ContactPage := CreateInputQueryPage(wpSelectTasks,
+    'VRChat contact', 'Your email for VRChat',
+    'VRChat asks tools that use its API to identify themselves with a contact email. ' +
+    'It is only sent to VRChat, and kept on this PC. You can leave it empty.');
+  ContactPage.Add('Email:', False);
+end;
+
+// Already set by an earlier install: keep it and don't ask again.
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := (PageID = ContactPage.ID) and FileExists(UserSettingsPath);
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var Json, Contact: String;
+begin
   if CurStep = ssPostInstall then begin
+    // No database and no secret: the API makes its own JWT key when Jwt:Key is empty.
     Json := '{' + #13#10 +
       '  "Logging": { "LogLevel": { "Default": "Information", "Microsoft.AspNetCore": "Warning" } },' + #13#10 +
       '  "AllowedHosts": "*",' + #13#10 +
-      '  "Jwt": { "Key": "", "Issuer": "DashboardVRChat.Api", "Audience": "DashboardVRChat.Client" },' + #13#10 +
-      '  "VRChat": { "Contact": "" }' + #13#10 + '}';
-    FilePath := ExpandConstant('{app}\api\appsettings.json');
-    SaveStringToFile(FilePath, Json, False);
+      '  "Jwt": { "Key": "", "Issuer": "DashboardVRChat.Api", "Audience": "DashboardVRChat.Client" }' + #13#10 + '}';
+    SaveStringToFile(ExpandConstant('{app}\api\appsettings.json'), Json, False);
+
+    Contact := Trim(ContactPage.Values[0]);
+    StringChangeEx(Contact, '"', '', True);
+    StringChangeEx(Contact, '\', '', True);
+    if (not FileExists(UserSettingsPath)) and (Contact <> '') then begin
+      ForceDirectories(ExtractFileDir(UserSettingsPath));
+      SaveStringToFile(UserSettingsPath, '{ "VRChat": { "Contact": "' + Contact + '" } }', False);
+    end;
   end;
 end;
 "@

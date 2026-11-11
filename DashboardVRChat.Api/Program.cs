@@ -12,10 +12,17 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Per-user settings that must survive uninstall / reinstall (e.g. the VRChat contact):
+// %LOCALAPPDATA%\VRChatDashboard\settings.json, next to the session and keys. It overrides appsettings.json.
+builder.Configuration.AddJsonFile(
+    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VRChatDashboard", "settings.json"),
+    optional: true, reloadOnChange: false);
+
 // VRChat asks API clients to identify themselves with a contact (sent in the User-Agent).
-VrChatSessionService.Contact = builder.Configuration["VRChat:Contact"]
-    ?? Environment.GetEnvironmentVariable("VRCHAT_CONTACT")
-    ?? "";
+var contact = builder.Configuration["VRChat:Contact"];
+VrChatSessionService.Contact = string.IsNullOrWhiteSpace(contact)
+    ? Environment.GetEnvironmentVariable("VRCHAT_CONTACT") ?? ""
+    : contact;
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

@@ -25,9 +25,13 @@ When a user runs `VRChatDashboard-Installer.exe`:
 1. Installs **Node.js** silently
 2. Installs the **API** (self-contained, no .NET needed by the user)
 3. Installs the **frontend** (already built) and the **SteamVR overlay**
-4. Writes `api\appsettings.json` with a **random JWT secret key** (no database: nothing else to set up)
-5. Creates a **desktop shortcut** + **Start Menu entry**
-6. Launches the app in its own window (closing the window stops everything)
+4. Writes `api\appsettings.json` (no database, no secret: the API makes its own JWT key)
+5. Asks once for the **contact email VRChat wants** (saved in `%LOCALAPPDATA%\VRChatDashboard\settings.json`)
+6. Creates a **desktop shortcut** + **Start Menu entry**
+7. Launches the app in its own window (closing the window stops everything)
+
+Uninstalling keeps your data (VRChat session, settings, window profile) in `%LOCALAPPDATA%\VRChatDashboard`,
+so a reinstall picks up where you left off. Delete that folder to start fresh.
 
 ### What the user sees
 
