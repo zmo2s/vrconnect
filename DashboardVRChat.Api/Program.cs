@@ -3,6 +3,7 @@ using DashboardVRChat.Api;
 using DashboardVRChat.Api.Services;
 using DashboardVRChat.Api.Services.Auth;
 using DashboardVRChat.Api.Services.ChatService;
+using DashboardVRChat.Api.Services.Chat;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -44,6 +45,7 @@ if (OperatingSystem.IsWindows()) dataProtection.ProtectKeysWithDpapi();
 builder.WebHost.UseUrls("http://localhost:5000");
 builder.Configuration["AllowedHosts"] = "localhost;127.0.0.1;[::1]";
 builder.Services.AddSingleton<VrChatSessionStore>();
+builder.Services.AddSingleton<VrChatPipeline>();
 builder.Services.AddHttpContextAccessor();
 // Each browser keeps its own VRChat client and pending verification cookies.
 builder.Services.AddScoped<VrChatSessionService>(services =>
@@ -230,7 +232,57 @@ app.MapPost("/vrchat/resume", async (VrChatSessionService service) =>
     return result.Success ? Results.Ok(result) : Results.BadRequest(result);
 });
 
-app.MapPost("/vrchat/logout", (VrChatSessionService service) => service.ForgetAsync());
+app.MapPost("/vrchat/logout", (VrChatSessionService service, VrChatPipeline pipeline) =>
+{
+    if (service.SessionKey != null) pipeline.Stop(service.SessionKey);
+    return service.ForgetAsync();
+});
+
+// Live events (Server-Sent Events): friend-online / -active / -offline / -location / -update / -add / -delete,
+// "notification", and "status" ({ connected, retryInSeconds }) so the dashboard knows when to fall back to polling.
+app.MapGet("/vrchat/events", async (HttpContext context, VrChatSessionService service, VrChatPipeline pipeline) =>
+{
+    var credentials = service.GetPipelineCredentials();
+    if (credentials == null || service.SessionKey == null)
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return;
+    }
+    var ct = context.RequestAborted;
+    context.Response.Headers.ContentType = "text/event-stream";
+    context.Response.Headers.CacheControl = "no-store";
+    context.Response.Headers["X-Accel-Buffering"] = "no";
+    context.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpResponseBodyFeature>()?.DisableBuffering();
+
+    using var subscription = pipeline.Subscribe(service.SessionKey, credentials.Value.AuthToken, credentials.Value.UserAgent);
+    try
+    {
+        await context.Response.WriteAsync(": connected\n\n", ct);
+        await context.Response.Body.FlushAsync(ct);
+        while (!ct.IsCancellationRequested)
+        {
+            bool hasData;
+            using (var heartbeat = CancellationTokenSource.CreateLinkedTokenSource(ct))
+            {
+                heartbeat.CancelAfter(TimeSpan.FromSeconds(20));
+                try { hasData = await subscription.Reader.WaitToReadAsync(heartbeat.Token); }
+                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                {
+                    await context.Response.WriteAsync(": ping\n\n", ct); // keeps the stream (and proxies) alive
+                    await context.Response.Body.FlushAsync(ct);
+                    continue;
+                }
+            }
+            if (!hasData) break; // signed out
+            var sb = new StringBuilder();
+            while (subscription.Reader.TryRead(out var item))
+                sb.Append("event: ").Append(item.Type).Append("\ndata: ").Append(item.Json).Append("\n\n");
+            await context.Response.WriteAsync(sb.ToString(), ct);
+            await context.Response.Body.FlushAsync(ct);
+        }
+    }
+    catch (OperationCanceledException) { /* the tab was closed */ }
+});
 
 app.MapPost("/vrchat/login", async (
     LoginRequest request,

@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { refreshChoices, type Settings } from "@/hooks/use-settings";
+import { type Settings } from "@/hooks/use-settings";
 
 interface Props { open: boolean; onOpenChange: (open: boolean) => void; settings: Settings; onChange: (patch: Partial<Settings>) => void; onHelp?: () => void; }
 
@@ -234,16 +234,6 @@ export default function SettingsDialog({ open, onOpenChange, settings, onChange,
           <Row id="setting-desktop" title="Desktop notifications"
             hint={!supported ? "Not supported by this browser." : permission === "denied" ? "Blocked by the browser — allow notifications for this site first." : "Also notify through Windows while the dashboard is in the background."}>
             <Switch id="setting-desktop" checked={settings.desktopAlerts} disabled={!supported || !settings.favoriteAlerts || permission === "denied"} onCheckedChange={enabled => void toggleDesktop(enabled)} />
-          </Row>
-        </section>
-
-        <section>
-          <h3 className="settings-heading">Data</h3>
-          <Row id="setting-refresh" title="Refresh friends every" hint="Shorter is fresher but sends more requests to VRChat.">
-            <Select value={String(settings.refreshSeconds)} onValueChange={value => onChange({ refreshSeconds: Number(value) })}>
-              <SelectTrigger id="setting-refresh" className="w-[130px]"><SelectValue /></SelectTrigger>
-              <SelectContent>{refreshChoices.map(seconds => <SelectItem key={seconds} value={String(seconds)}>{seconds < 60 ? `${seconds} seconds` : `${seconds / 60} minute${seconds > 60 ? "s" : ""}`}</SelectItem>)}</SelectContent>
-            </Select>
           </Row>
         </section>
         {onHelp && <Button variant="ghost" className="justify-self-start text-primary" onClick={onHelp}><CircleHelp /> How it works</Button>}

@@ -7,8 +7,6 @@ export interface Settings {
   desktopAlerts: boolean;
   /** Tighter rows to fit more friends on screen. */
   compact: boolean;
-  /** Friends refresh interval, in seconds. */
-  refreshSeconds: number;
   /** Play a sound for notifications. */
   sounds: boolean;
   /** Notification sound volume, 0–100. */
@@ -19,9 +17,8 @@ export interface Settings {
   ambient: boolean;
 }
 
-export const defaultSettings: Settings = { favoriteAlerts: true, desktopAlerts: false, compact: false, refreshSeconds: 60, sounds: true, soundVolume: 60, motion: true, ambient: true };
+export const defaultSettings: Settings = { favoriteAlerts: true, desktopAlerts: false, compact: false, sounds: true, soundVolume: 60, motion: true, ambient: true };
 const KEY = "vrconnect-settings";
-export const refreshChoices = [30, 60, 120, 300];
 
 function read(): Settings {
   try {
@@ -30,7 +27,6 @@ function read(): Settings {
       favoriteAlerts: typeof value.favoriteAlerts === "boolean" ? value.favoriteAlerts : defaultSettings.favoriteAlerts,
       desktopAlerts: typeof value.desktopAlerts === "boolean" ? value.desktopAlerts : defaultSettings.desktopAlerts,
       compact: typeof value.compact === "boolean" ? value.compact : defaultSettings.compact,
-      refreshSeconds: refreshChoices.includes(value.refreshSeconds) ? value.refreshSeconds : defaultSettings.refreshSeconds,
       sounds: typeof value.sounds === "boolean" ? value.sounds : defaultSettings.sounds,
       soundVolume: typeof value.soundVolume === "number" ? Math.min(100, Math.max(0, Math.round(value.soundVolume))) : defaultSettings.soundVolume,
       motion: typeof value.motion === "boolean" ? value.motion : defaultSettings.motion,

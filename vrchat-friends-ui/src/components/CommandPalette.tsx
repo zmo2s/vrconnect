@@ -1,11 +1,11 @@
-import { Activity, Bell, Hand, Settings, LockKeyhole, MapPin, Moon, RefreshCw, Star, Sun, Users } from "lucide-react";
+import { Activity, Bell, Orbit, Hand, Settings, LockKeyhole, MapPin, Moon, RefreshCw, Star, Sun, Users } from "lucide-react";
 import { useTheme } from "next-themes";
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, CommandShortcut } from "@/components/ui/command";
 import type { Friend } from "@/data/mockData";
 import { getFriendLocation, type FriendLocation } from "@/lib/friend-location";
 import { cn } from "@/lib/utils";
 
-export type PaletteAction = "online" | "favorites" | "private" | "groups" | "inbox" | "refresh" | "settings" | "activity";
+export type PaletteAction = "online" | "favorites" | "private" | "groups" | "inbox" | "refresh" | "settings" | "activity" | "radar";
 
 interface Props {
   open: boolean;
@@ -60,6 +60,7 @@ export default function CommandPalette({ open, onOpenChange, friends, places, fa
           <CommandItem value="action groups and boops" onSelect={() => run(() => onAction("groups"))}><Hand className="mr-2 h-4 w-4" />Groups &amp; boops</CommandItem>
           <CommandItem value="action inbox notifications" onSelect={() => run(() => onAction("inbox"))}><Bell className="mr-2 h-4 w-4" />Open inbox</CommandItem>
           <CommandItem value="action activity timeline history" onSelect={() => run(() => onAction("activity"))}><Activity className="mr-2 h-4 w-4" />Open activity timeline</CommandItem>
+          <CommandItem value="action social radar map orbit planets" onSelect={() => run(() => onAction("radar"))}><Orbit className="mr-2 h-4 w-4" />Open social radar</CommandItem>
           <CommandItem value="action settings preferences" onSelect={() => run(() => onAction("settings"))}><Settings className="mr-2 h-4 w-4" />Settings</CommandItem>
           {canRefresh && <CommandItem value="action refresh friends" onSelect={() => run(() => onAction("refresh"))}><RefreshCw className="mr-2 h-4 w-4" />Refresh friends</CommandItem>}
           <CommandItem value="action toggle theme dark light" onSelect={() => run(() => setTheme(resolvedTheme === "dark" ? "light" : "dark"))}>

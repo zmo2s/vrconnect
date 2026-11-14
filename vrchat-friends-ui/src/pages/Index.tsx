@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { toggleFullscreen } from "@/lib/fullscreen";
 import {
   MailPlus, UserPlus, Activity as ActivityIcon, AlertTriangle, ArrowUpDown, ArrowUpRight, Bell, Check, ChevronDown, ChevronRight, CircleHelp, Compass, Copy, ExternalLink, Globe2,
-  Hand, LayoutGrid, List, ListFilter, Loader2, LockKeyhole, LogIn, MapPin, RefreshCw, Search, Settings as SettingsIcon, Sparkles, Star, StickyNote, UserCheck, Users, X,
+  Hand, LayoutGrid, List, ListFilter, Loader2, LockKeyhole, LogIn, MapPin, Orbit, RefreshCw, Search, Settings as SettingsIcon, Sparkles, Star, StickyNote, UserCheck, Users, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNowStrict } from "date-fns";
@@ -42,6 +42,13 @@ import { statusMeta, statusRank } from "@/lib/vrc-status";
 import { Textarea } from "@/components/ui/textarea";
 import { getNotifications, incomingToApp } from "@/data/notifications";
 import { cn } from "@/lib/utils";
+import { useLiveUpdates } from "@/hooks/use-live-updates";
+import SocialRadar, { type RadarPlace } from "@/components/radar/SocialRadar";
+
+/** While live events flow, a slow full reload is kept only as a safety net for anything missed. */
+const LIVE_SAFETY_REFRESH = 5 * 60 * 1000;
+/** When live events are unavailable, poll the friend list every minute. */
+const FALLBACK_REFRESH = 60 * 1000;
 
 /* ---------- small presentational helpers ---------- */
 
@@ -140,6 +147,7 @@ export default function Index() {
   const [groupsOpen, setGroupsOpen] = useState(false);
   const [inboxOpen, setInboxOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
+  const [radarOpen, setRadarOpen] = useState(false);
   const [reachKind, setReachKind] = useState<InviteKind>("invite");
   const [showAllWorlds, setShowAllWorlds] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -172,12 +180,14 @@ export default function Index() {
   }, []);
 
   /* data */
+  // Live VRChat events patch the lists as they happen; polling only takes over when the live stream is down.
+  const live = useLiveUpdates(!demo) === "live";
   const query = useQuery({
-    queryKey: ["location-friends"], enabled: !demo, refetchInterval: settings.refreshSeconds * 1000, retry: 1,
+    queryKey: ["location-friends"], enabled: !demo, refetchInterval: live ? LIVE_SAFETY_REFRESH : FALLBACK_REFRESH, retry: 1,
     queryFn: async () => { const lists = await Promise.all([getFriends(true), getFriends(false)]); return [...new Map(lists.flat().map(friend => [friend.id, friend])).values()]; },
   });
   const inbox = useNotifications(demo);
-  const notificationQuery = useQuery({ queryKey: ["incoming-notifications"], queryFn: getNotifications, enabled: !demo, refetchInterval: 30000, retry: false });
+  const notificationQuery = useQuery({ queryKey: ["incoming-notifications"], queryFn: getNotifications, enabled: !demo, refetchInterval: live ? LIVE_SAFETY_REFRESH : 30000, retry: false });
   // Chime for VRChat notifications that arrive while the dashboard is open (not for the ones already there on load).
   const knownNotificationIds = useRef<Set<string> | null>(null);
   useEffect(() => {
@@ -275,6 +285,10 @@ export default function Index() {
     staleTime: 60 * 1000, refetchInterval: 60 * 1000, retry: false,
   })) });
   const instanceCounts = new Map(groups.map(({ location }, index) => [location.key, instanceQueries[index]?.data]));
+  const radarPlaces: RadarPlace[] = groups.map(({ location, friends }) => {
+    const inst = instanceCounts.get(location.key);
+    return { location, friends, people: inst?.userCount, capacity: inst?.capacity, picture: demo ? undefined : worldPictureUrl(worlds.get(location.worldId!)?.data) };
+  });
 
   const needle = search.trim().toLowerCase();
   const visible = data.filter(friend => {
@@ -352,6 +366,7 @@ export default function Index() {
     else if (action === "refresh") refresh();
     else if (action === "settings") setSettingsOpen(true);
     else if (action === "activity") setActivityOpen(true);
+    else if (action === "radar") setRadarOpen(true);
   }
   // Refresh button feedback: brief "Updated" / "Failed" after a refresh the user asked for.
   const manualRefresh = useRef(false);
@@ -455,6 +470,9 @@ export default function Index() {
         <button aria-label="Friend locations" className="sidebar-link" onClick={() => { setLocationsOpen(true); scrollTo("worlds"); }}>
           <Globe2 /><span className="label-full">Locations</span><span className="label-short">Places</span><span className="sidebar-count">{groups.length}</span>
         </button>
+        <button aria-label="Social radar" className="sidebar-link" onClick={() => setRadarOpen(true)}>
+          <Orbit /><span className="label-full">Radar</span><span className="label-short">Radar</span><span className="sidebar-new">New</span>
+        </button>
         <button aria-label="Groups and boops" className="sidebar-link" onClick={() => setGroupsOpen(true)}>
           <Hand /><span className="label-full">Groups &amp; boops</span><span className="label-short">Groups</span>
         </button>
@@ -536,7 +554,8 @@ export default function Index() {
           </button>
         </section>
         {!demo && <p className="overview-note">
-          {updated ? `Updated ${updatedAgo} (${updated}) · refreshes every ${settings.refreshSeconds < 60 ? `${settings.refreshSeconds}s` : settings.refreshSeconds === 60 ? "minute" : `${settings.refreshSeconds / 60} min`}` : "Waiting for your friends"}
+          {live && <span className="live-badge" title="Connected to VRChat's live events: changes appear within a second"><span className="live-dot" aria-hidden="true" />Live</span>}
+          {updated ? (live ? `Real-time updates · last full sync ${updatedAgo}` : `Updated ${updatedAgo} (${updated}) · refreshes every minute`) : "Waiting for your friends"}
         </p>}
 
         {query.isError && !demo && (
@@ -673,6 +692,9 @@ export default function Index() {
 
     <ActivityTimeline open={activityOpen} onOpenChange={setActivityOpen} events={activity.events} favorites={favorites} demo={demo} picture={eventPicture}
       onFriend={setSelectedId} onPlace={showInstance} onClear={activity.clear} />
+
+    <SocialRadar open={radarOpen} onOpenChange={setRadarOpen} friends={data} places={radarPlaces} favorites={favorites} events={activity.events} demo={demo}
+      onFriend={setSelectedId} onPlace={showInstance} />
 
     <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} settings={settings} onChange={updateSettings} onHelp={() => { setSettingsOpen(false); setHelp(true); }} />
 

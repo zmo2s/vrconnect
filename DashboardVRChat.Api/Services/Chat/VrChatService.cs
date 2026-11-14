@@ -28,6 +28,8 @@ public class VrChatSessionService
 
     private readonly VrChatSessionStore? _store;
     private readonly string? _sessionKey;
+    /// <summary>The dashboard's opaque session key (not a VRChat credential).</summary>
+    public string? SessionKey => _sessionKey;
 
     public VrChatSessionService(ILogger<VrChatSessionService>? logger = null,
         VrChatSessionStore? store = null, string? sessionKey = null,
@@ -121,6 +123,20 @@ public class VrChatSessionService
         var auth = cookies.FirstOrDefault(cookie => cookie.Name == "auth")?.Value;
         var twoFactor = cookies.FirstOrDefault(cookie => cookie.Name == "twoFactorAuth")?.Value;
         if (!string.IsNullOrEmpty(auth)) _store.Save(_sessionKey, auth, twoFactor);
+    }
+
+    /// <summary>
+    /// What the live pipeline (wss://pipeline.vrchat.cloud) needs: the VRChat "auth" cookie and our User-Agent.
+    /// Null when signed out. Never sent to the browser.
+    /// </summary>
+    public (string AuthToken, string UserAgent)? GetPipelineCredentials()
+    {
+        var client = _vrchat;
+        if (client == null) return null;
+        var auth = client.GetCookies().Cast<Cookie>().FirstOrDefault(cookie => cookie.Name == "auth")?.Value;
+        if (string.IsNullOrEmpty(auth)) return null;
+        var userAgent = client.Configuration?.UserAgent;
+        return (auth, string.IsNullOrWhiteSpace(userAgent) ? $"DashboardVRChat/1.0.0 {ContactInfo}" : userAgent);
     }
 
     public async Task<ApiResult> ResumeAsync()
