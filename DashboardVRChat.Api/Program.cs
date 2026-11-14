@@ -400,6 +400,9 @@ app.MapGet("/vrchat/instance", async (
     return result.Success ? Results.Ok(result) : Results.BadRequest(result);
 });
 
+// VRChat images re-served with CORS headers, for the 3D radar's planet textures.
+app.MapImageProxy();
+
 app.MapGet("/vrchat/getPictureById/file={file}/id={id}", async (IFormFile file,Guid id,VrChatSessionService service) =>
 {
     var result = await service.UploadImageToDatabaseAsync(file,id);

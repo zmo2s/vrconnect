@@ -1579,7 +1579,10 @@ button.bg-primary:disabled { background: var(--fill-strong); color: hsl(var(--mu
 #vrc-wallpaper::before { content: ""; position: absolute; inset: calc(var(--wallpaper-blur, 0px) * -2);
   background: var(--wallpaper-image) center / cover no-repeat; filter: blur(var(--wallpaper-blur, 0px)); }
 #vrc-wallpaper video { position: absolute; inset: calc(var(--wallpaper-blur, 0px) * -2); width: calc(100% + var(--wallpaper-blur, 0px) * 4);
-  height: calc(100% + var(--wallpaper-blur, 0px) * 4); object-fit: cover; filter: blur(var(--wallpaper-blur, 0px)); }
+  height: calc(100% + var(--wallpaper-blur, 0px) * 4); object-fit: cover; filter: blur(var(--wallpaper-blur, 0px));
+  /* On Windows, Chromium hands a plain video to a hardware overlay; the glass panels' backdrop-filter above it
+     then flickers as black rectangles. A not-quite-1 opacity keeps the video in normal compositing. */
+  opacity: .999; }
 .wallpaper-preview video { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; display: block; }
 .wallpaper-preview { overflow: hidden; }
 #vrc-wallpaper::after { content: ""; position: absolute; inset: 0; background: rgb(0 0 0 / var(--wallpaper-dim, .35)); }
