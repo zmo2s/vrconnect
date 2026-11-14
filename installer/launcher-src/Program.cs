@@ -137,6 +137,9 @@ sealed class MainWindow : Form
         core.DocumentTitleChanged += (_, _) =>
             Text = string.IsNullOrWhiteSpace(core.DocumentTitle) ? "VRChat Dashboard" : core.DocumentTitle;
 
+        // Full screen asked by the page (F11 / Settings): borderless window over the whole screen, taskbar included.
+        core.ContainsFullScreenElementChanged += (_, _) => SetFullScreen(core.ContainsFullScreenElement);
+
         // Links to other sites (vrchat.com, GitHub…) open in the user's browser, not in the app.
         core.NewWindowRequested += (_, args) => { args.Handled = true; OpenExternal(args.Uri); };
         core.NavigationStarting += (_, args) =>
@@ -153,6 +156,26 @@ sealed class MainWindow : Form
         core.Navigate(FrontUrl);
         web.Visible = true;
         status.Visible = false;
+    }
+
+    FormWindowState stateBeforeFullScreen = FormWindowState.Normal;
+
+    void SetFullScreen(bool on)
+    {
+        if (on == (FormBorderStyle == FormBorderStyle.None)) return;
+        if (on)
+        {
+            stateBeforeFullScreen = WindowState;
+            // Normal first: a window that is already maximized would keep the taskbar visible.
+            WindowState = FormWindowState.Normal;
+            FormBorderStyle = FormBorderStyle.None;
+            WindowState = FormWindowState.Maximized;
+        }
+        else
+        {
+            FormBorderStyle = FormBorderStyle.Sizable;
+            WindowState = stateBeforeFullScreen;
+        }
     }
 
     protected override void OnFormClosed(FormClosedEventArgs e)
@@ -201,10 +224,20 @@ sealed class MainWindow : Form
 
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseUrls(FrontUrl);
+        // Answer only requests addressed to this PC (blocks DNS rebinding to this local server).
+        builder.Configuration["AllowedHosts"] = "localhost;127.0.0.1;[::1]";
         builder.Logging.ClearProviders();
         var app = builder.Build();
 
         var files = new PhysicalFileProvider(frontendDir);
+        app.Use(async (context, next) =>
+        {
+            var headers = context.Response.Headers;
+            headers.XContentTypeOptions = "nosniff";
+            headers.XFrameOptions = "DENY";
+            headers["Referrer-Policy"] = "no-referrer";
+            await next();
+        });
         app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = files });
         // index.html must always be checked again, or an update (or START.bat) keeps showing the old interface.
         // The hashed files in /assets can be cached.

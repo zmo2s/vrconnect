@@ -141,7 +141,7 @@ export function readWallpaper(): Wallpaper {
 /* A video chosen from the computer is kept in IndexedDB as a Blob. */
 
 /** Rejects instead of waiting forever: some embedded browsers never answer IndexedDB requests. */
-function withTimeout<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
+export function withTimeout<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`${what} timed out`)), ms);
     promise.then(v => { clearTimeout(timer); resolve(v); }, e => { clearTimeout(timer); reject(e); });
@@ -159,7 +159,8 @@ function openDb(): Promise<IDBDatabase> {
   }), 8000, "Opening the video storage");
 }
 
-async function idb<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest): Promise<T> {
+/** Runs one request on the app's IndexedDB file store (wallpaper video, music). */
+export async function idb<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest): Promise<T> {
   const db = await openDb();
   try {
     return await withTimeout(new Promise<T>((resolve, reject) => {
@@ -316,9 +317,10 @@ export function useWallpaper() {
   return [wallpaper, setWallpaper, setLocalVideo] as const;
 }
 
-/** Applies the saved accent and wallpaper before the first render (no flash). */
+/** Applies the saved accent and wallpaper before the first render (no flash), and starts the saved music. */
 export function applySavedPersonalization() {
   applyAccent(readAccent());
+  void import("./music").then(m => m.applyMusic(m.readMusic()));
   const apply = () => applyWallpaper(readWallpaper());
   if (document.body) apply(); else document.addEventListener("DOMContentLoaded", apply, { once: true });
 }

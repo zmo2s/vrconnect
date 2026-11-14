@@ -1564,6 +1564,8 @@ button.bg-primary:disabled { background: var(--fill-strong); color: hsl(var(--mu
 .wallpaper-link { display: flex; align-items: center; gap: 8px; color: hsl(var(--muted-foreground)); }
 .wallpaper-link input { height: 34px; font-size: 13px; }
 .wallpaper-error { font-size: 12.5px; color: hsl(var(--destructive)); margin: 0; }
+.music-now { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; min-width: 0; }
+.music-now span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wallpaper-step { font-size: 12.5px; color: hsl(var(--muted-foreground)); margin: 0; }
 .wallpaper-slider { display: grid; grid-template-columns: 56px 1fr 44px; align-items: center; gap: 10px; font-size: 12.5px; color: hsl(var(--muted-foreground)); }
 .wallpaper-slider span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
@@ -1579,6 +1581,8 @@ button.bg-primary:disabled { background: var(--fill-strong); color: hsl(var(--mu
 #vrc-wallpaper::after { content: ""; position: absolute; inset: 0; background: rgb(0 0 0 / var(--wallpaper-dim, .35)); }
 .has-wallpaper body { background: transparent; }
 .has-wallpaper body::before, .has-wallpaper .ambient { display: none !important; }
+/* The solid fade above the toolbar (n° 34) is a dark/pale band over a wallpaper: let the wallpaper show instead */
+.has-wallpaper .app-topbar::before { display: none; }
 
 /* Second badge under the head-count: how many of your friends are in the instance */
 .world-count.world-friends { top: 52px; }

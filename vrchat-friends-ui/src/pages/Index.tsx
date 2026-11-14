@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { toggleFullscreen } from "@/lib/fullscreen";
 import {
   MailPlus, UserPlus, Activity as ActivityIcon, AlertTriangle, ArrowUpDown, ArrowUpRight, Bell, Check, ChevronDown, ChevronRight, CircleHelp, Compass, Copy, ExternalLink, Globe2,
   Hand, LayoutGrid, List, ListFilter, Loader2, LockKeyhole, LogIn, MapPin, RefreshCw, Search, Settings as SettingsIcon, Sparkles, Star, StickyNote, UserCheck, Users, X,
@@ -151,10 +152,13 @@ export default function Index() {
     try { localStorage.setItem(PREFS_KEY, JSON.stringify({ tab, view, sort, locationsOpen })); } catch { /* preferences are a convenience */ }
   }, [tab, view, sort, locationsOpen]);
 
-  // "/" jumps to the list search; Ctrl/Cmd+K opens the quick-jump palette.
+  // "/" jumps to the list search; Ctrl/Cmd+K opens the quick-jump palette; F11 toggles full screen.
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if ((event.key === "k" || event.key === "K") && (event.ctrlKey || event.metaKey)) {
+      if (event.key === "F11") {
+        event.preventDefault();
+        void toggleFullscreen();
+      } else if ((event.key === "k" || event.key === "K") && (event.ctrlKey || event.metaKey)) {
         event.preventDefault();
         setPaletteOpen(open => !open);
       } else if (event.key === "/" && !isTyping(event.target)) {
@@ -462,7 +466,7 @@ export default function Index() {
         </button>
       </nav>
       <div className="sidebar-bottom">
-        <div className="shortcut-hint"><span><kbd>Ctrl K</kbd> quick jump</span><span><kbd>/</kbd> search</span></div>
+        <div className="shortcut-hint"><span><kbd>Ctrl K</kbd> quick jump</span><span><kbd>/</kbd> search</span><span><kbd>F11</kbd> full screen</span></div>
         <button aria-label="Settings" className="sidebar-link" onClick={() => setSettingsOpen(true)}><SettingsIcon /><span className="label-full">Settings</span></button>
         <button aria-label="How it works" className="sidebar-link" onClick={() => setHelp(true)}><CircleHelp /><span className="label-full">How it works</span></button>
         {demo ? (

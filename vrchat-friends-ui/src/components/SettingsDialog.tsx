@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, CircleHelp, Film, ImagePlus, Link2, Play, Trash2, Volume1, Volume2, VolumeX } from "lucide-react";
+import { useMusic } from "@/lib/music";
+import { fullscreenSupported, setFullscreen, useFullscreen } from "@/lib/fullscreen";
+import { Check, CircleHelp, Film, ImagePlus, Link2, Music2, Pause, Play, Trash2, Volume1, Volume2, VolumeX } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { accentPresets, imageFileToDataUrl, isVideoFile, resolveWallpaperUrl, useAccent, useWallpaper } from "@/lib/personalize";
 import { Slider } from "@/components/ui/slider";
@@ -68,6 +70,28 @@ export default function SettingsDialog({ open, onOpenChange, settings, onChange,
     const error = setWallpaper({ src: link });
     setWallpaperError(error || "");
     if (!error) setWallpaperLink("");
+  }
+
+  const fullscreen = useFullscreen();
+  const [music, setMusic, setLocalMusic] = useMusic();
+  const [musicLink, setMusicLink] = useState("");
+  const [musicError, setMusicError] = useState("");
+  const [musicStep, setMusicStep] = useState("");
+  const musicInput = useRef<HTMLInputElement>(null);
+
+  async function pickMusic(file?: File) {
+    if (!file) return;
+    setMusicError(""); setMusicStep("Opening the file…");
+    try { setMusicError((await setLocalMusic(file, setMusicStep)) || ""); }
+    catch (error) { setMusicError(error instanceof Error ? error.message : "This file couldn't be used."); }
+    finally { setMusicStep(""); if (musicInput.current) musicInput.current.value = ""; }
+  }
+  function applyMusicLink() {
+    const link = musicLink.trim();
+    if (!link) return;
+    const error = setMusic({ src: link, name: link, playing: true });
+    setMusicError(error || "");
+    if (!error) setMusicLink("");
   }
 
   async function toggleDesktop(enabled: boolean) {
@@ -144,6 +168,33 @@ export default function SettingsDialog({ open, onOpenChange, settings, onChange,
               </>}
             </div>
           </div>
+
+          <div className="settings-row settings-row-stack">
+            <div><Label>Background music</Label><p>An MP3 that loops while the dashboard is open. Saved only in this browser.</p></div>
+            <div className="wallpaper-controls">
+              {music.src && <p className="music-now" title={music.name}><Music2 size={15} /> <span>{music.name || "Music"}</span></p>}
+              <div className="wallpaper-buttons">
+                <input ref={musicInput} type="file" accept=".mp3,.m4a,.aac,.ogg,.oga,.opus,.wav,.flac" hidden onChange={event => void pickMusic(event.target.files?.[0])} />
+                <Button type="button" variant="outline" size="sm" disabled={!!musicStep} onClick={() => musicInput.current?.click()}><Music2 /> {music.src ? "Change MP3" : "Choose MP3"}</Button>
+                {music.src && <Button type="button" variant="outline" size="sm" onClick={() => setMusic({ playing: !music.playing })}>
+                  {music.playing ? <><Pause /> Pause</> : <><Play /> Play</>}</Button>}
+                {music.src && <Button type="button" variant="ghost" size="sm" onClick={() => { setMusic({ src: "", name: "" }); setMusicError(""); }}><Trash2 /> Remove</Button>}
+              </div>
+              <form className="wallpaper-link" onSubmit={event => { event.preventDefault(); applyMusicLink(); }}>
+                <Link2 size={15} />
+                <Input aria-label="Music link" placeholder="…or paste an .mp3 link (https://)" value={musicLink} onChange={event => setMusicLink(event.target.value)} />
+                <Button type="submit" size="sm" variant="outline" disabled={!musicLink.trim()}>Use</Button>
+              </form>
+              {musicStep && <p className="wallpaper-step" role="status">{musicStep}</p>}
+              {musicError && <p className="wallpaper-error" role="alert">{musicError}</p>}
+              {music.src && <div className="wallpaper-slider"><span>Volume</span>
+                <Slider aria-label="Music volume" min={0} max={100} step={5} value={[music.volume]} onValueChange={([volume]) => setMusic({ volume })} /><span>{music.volume}%</span></div>}
+            </div>
+          </div>
+
+          {fullscreenSupported() && <Row id="setting-fullscreen" title="Full screen" hint="Hide the window frame and the taskbar. Shortcut: F11 (Esc or F11 to leave).">
+            <Switch id="setting-fullscreen" checked={fullscreen} onCheckedChange={on => void setFullscreen(on)} />
+          </Row>}
 
           <Row id="setting-compact" title="Compact list" hint="Smaller rows, more friends on screen.">
             <Switch id="setting-compact" checked={settings.compact} onCheckedChange={compact => onChange({ compact })} />

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.DataProtection;
 using DashboardVRChat.Api;
+using DashboardVRChat.Api.Services;
 using DashboardVRChat.Api.Services.Auth;
 using DashboardVRChat.Api.Services.ChatService;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -27,12 +28,21 @@ VrChatSessionService.Contact = string.IsNullOrWhiteSpace(contact)
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddMemoryCache();
-builder.Services.AddDataProtection()
+// ---- Security of the local data (saved VRChat login, keys, overlay token) ----
+// Only this Windows user can open %LOCALAPPDATA%\VRChatDashboard, and the key that encrypts the saved login
+// is itself encrypted by Windows (DPAPI): a copy of the folder on another PC or account is useless.
+LocalDataSecurity.LockDownDataFolder();
+LocalDataSecurity.RemoveUnprotectedKeys();
+var dataProtection = builder.Services.AddDataProtection()
     .SetApplicationName("DashboardVRChat")
-    .PersistKeysToFileSystem(new System.IO.DirectoryInfo(
-        System.IO.Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "VRChatDashboard", "keys")));
+    .PersistKeysToFileSystem(new DirectoryInfo(LocalDataSecurity.KeysDir));
+if (OperatingSystem.IsWindows()) dataProtection.ProtectKeysWithDpapi();
+
+// ---- Network: this API is for this PC only ----
+// Listen on the loopback interface only, and answer only requests addressed to localhost
+// (blocks "DNS rebinding", where a web page makes its own domain point at 127.0.0.1).
+builder.WebHost.UseUrls("http://localhost:5000");
+builder.Configuration["AllowedHosts"] = "localhost;127.0.0.1;[::1]";
 builder.Services.AddSingleton<VrChatSessionStore>();
 builder.Services.AddHttpContextAccessor();
 // Each browser keeps its own VRChat client and pending verification cookies.
@@ -177,10 +187,23 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
-app.UseDeveloperExceptionPage();
 
-app.UseSwagger();
-app.UseSwaggerUI();
+// Error details and the Swagger test page are for development (START.bat) only, never in the installed app.
+if (app.Environment.IsDevelopment())
+{
+    app.UseDeveloperExceptionPage();
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.Use(async (context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers.XContentTypeOptions = "nosniff";
+    headers.XFrameOptions = "DENY";
+    headers["Referrer-Policy"] = "no-referrer";
+    await next();
+});
 
 app.UseRouting();
 app.UseCors("react");
