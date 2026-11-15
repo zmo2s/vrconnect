@@ -59,8 +59,7 @@ public static class ImageProxy
         for (var hop = 0; hop <= MaxRedirects; hop++)
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, uri);
-            var contact = string.IsNullOrWhiteSpace(VrChatSessionService.Contact) ? "unconfigured-contact" : VrChatSessionService.Contact.Trim();
-            request.Headers.TryAddWithoutValidation("User-Agent", $"DashboardVRChat/1.0.0 {contact}");
+            request.Headers.TryAddWithoutValidation("User-Agent", AppIdentity.UserAgent);
             using var response = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
 
             if ((int)response.StatusCode is >= 300 and < 400 && response.Headers.Location is { } location)

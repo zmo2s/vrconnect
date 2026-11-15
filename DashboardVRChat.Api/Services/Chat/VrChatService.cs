@@ -41,18 +41,11 @@ public class VrChatSessionService
         if (saved != null)
         {
             _vrchat = new VRChatClientBuilder()
-                .WithApplication(name: "DashboardVRChat", version: "1.0.0", contact: ContactInfo)
+                .WithApplication(name: AppIdentity.Name, version: AppIdentity.Version, contact: AppIdentity.Contact)
                 .WithAuthCookie(saved.Auth, saved.TwoFactor).Build();
             _vrchat.Client.SerializerSettings.ContractResolver = new VrChatContractResolver();
         }
     }
-
-    /// <summary>
-    /// Contact sent to VRChat in the User-Agent (VRChat asks API clients to identify themselves).
-    /// Set "VRChat:Contact" in appsettings.json (or the VRCHAT_CONTACT environment variable) to your email.
-    /// </summary>
-    public static string Contact { get; set; } = "";
-    private static string ContactInfo => string.IsNullOrWhiteSpace(Contact) ? "unconfigured-contact" : Contact.Trim();
 
     /// <summary>Turns a VRChat API error into a message that says what happened and what to do.</summary>
     private string DescribeLoginError(ApiException ex)
@@ -62,9 +55,8 @@ public class VrChatSessionService
         {
             401 => "Invalid VRChat username or password.",
             429 => "Too many login attempts. Wait a few minutes before trying again.",
-            403 => string.IsNullOrWhiteSpace(Contact)
-                ? "VRChat refused the connection (403). Set \"VRChat:Contact\" in appsettings.json to your email address, restart the API, then try again."
-                : "VRChat refused the connection (403). Your network or IP may be blocked by VRChat; try again later or from another connection.",
+            403 => "VRChat refused the connection (403). Your network or IP may be blocked by VRChat; try again later or from another connection. " +
+                   "If it keeps happening, set \"VRChat:Contact\" in appsettings.json to your email address and restart the API.",
             400 => "VRChat rejected the login request (400). Check your username and password, then try again.",
             0 => "Could not reach VRChat. Check your internet connection.",
             >= 500 => $"VRChat's servers are having trouble ({ex.ErrorCode}). Try again in a few minutes.",
@@ -88,7 +80,7 @@ public class VrChatSessionService
             var client = new VRChatClientBuilder()
                 .WithUsername(username.Trim())
                 .WithPassword(password)
-                .WithApplication(name: "DashboardVRChat", version: "1.0.0", contact: ContactInfo)
+                .WithApplication(name: AppIdentity.Name, version: AppIdentity.Version, contact: AppIdentity.Contact)
                 .Build();
             client.Client.SerializerSettings.ContractResolver = new VrChatContractResolver();
             var user = await client.Authentication.GetCurrentUserAsync();
@@ -136,7 +128,7 @@ public class VrChatSessionService
         var auth = client.GetCookies().Cast<Cookie>().FirstOrDefault(cookie => cookie.Name == "auth")?.Value;
         if (string.IsNullOrEmpty(auth)) return null;
         var userAgent = client.Configuration?.UserAgent;
-        return (auth, string.IsNullOrWhiteSpace(userAgent) ? $"DashboardVRChat/1.0.0 {ContactInfo}" : userAgent);
+        return (auth, string.IsNullOrWhiteSpace(userAgent) ? AppIdentity.UserAgent : userAgent);
     }
 
     public async Task<ApiResult> ResumeAsync()

@@ -23,6 +23,8 @@ and keep up with invites — **without opening the game**.
 
 <img src="docs/screenshot.png" alt="vrconnect dashboard: online friends, shared locations and world cards over a custom wallpaper" width="100%"/>
 
+<!-- DEMO VIDEO: drag pub_edit_music.mp4 onto this line in GitHub's web editor -->
+
 <br/><br/>
 
 [✨ Features](#-features) · [🚀 Quick start](#-quick-start-windows) · [🔐 Security](#-security) · [🤝 Contributing](#-contributing) · [💙 Contributors](#-contributors)
@@ -103,7 +105,7 @@ git clone <this repository> && cd VRChatDashboard-OpenSource
 .\START.bat
 ```
 
-`SETUP.ps1` asks for the contact email VRChat wants API tools to send (see below) and installs the frontend packages.
+`SETUP.ps1` creates `appsettings.json` and installs the frontend packages. There's nothing to type.
 
 | Service | Address |
 |---------|---------|
@@ -124,8 +126,11 @@ cd vrchat-friends-ui && npm install
 
 <br/>
 
-**1. Configure the API.** Copy `DashboardVRChat.Api/appsettings.example.json` to `appsettings.json` and set your contact email.
-VRChat asks tools that use its API to identify themselves, and may refuse the connection (403) without it:
+**1. Configure the API.** Copy `DashboardVRChat.Api/appsettings.example.json` to `appsettings.json`.
+Nothing to fill in: there is no database, the API makes its own JWT key when `Jwt:Key` is empty, and it identifies
+itself to VRChat as `vrconnect/<version> (https://github.com/zmo2s/vrconnect)`.
+
+<sub>Optional: if VRChat ever refuses the connection (403), add your own contact. Put it in `appsettings.json`, in `%LOCALAPPDATA%\VRChatDashboard\settings.json` (kept across reinstalls), or in the `VRCHAT_CONTACT` environment variable:</sub>
 
 ```json
 {
@@ -134,10 +139,6 @@ VRChat asks tools that use its API to identify themselves, and may refuse the co
   }
 }
 ```
-
-Nothing else to fill in: there is no database, and the API makes its own JWT key when `Jwt:Key` is empty.
-
-> ⚠️ Keep your real `appsettings.json` local: don't commit your email.
 
 **2. Run the API**
 
@@ -225,7 +226,7 @@ VRChatDashboard-OpenSource/
 
 - 🔑 Your **VRChat password and 2FA codes are never saved**. To keep you signed in, only VRChat's session cookie is stored, **encrypted** with ASP.NET Data Protection
 - 🎲 The API generates a random JWT key at startup when none is set
-- 🙈 Your contact email lives in your local `appsettings.json`, which should never be committed
+- 🙈 No email needed: the app identifies itself to VRChat with the project page, not with your personal details
 - 📦 The repository contains **no real credentials**, and dependencies are kept free of known vulnerabilities
 
 > ⚠️ **Unofficial tool.** vrconnect is not affiliated with or endorsed by VRChat Inc. It uses the VRChat API with your own account. Please use it respectfully and within [VRChat's Terms of Service](https://hello.vrchat.com/legal).

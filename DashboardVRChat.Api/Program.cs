@@ -20,10 +20,11 @@ builder.Configuration.AddJsonFile(
     Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VRChatDashboard", "settings.json"),
     optional: true, reloadOnChange: false);
 
-// VRChat asks API clients to identify themselves with a contact (sent in the User-Agent).
+// VRChat asks API clients to identify themselves (User-Agent). By default that's the project page;
+// "VRChat:Contact" or VRCHAT_CONTACT can replace it with your own contact.
 var contact = builder.Configuration["VRChat:Contact"];
-VrChatSessionService.Contact = string.IsNullOrWhiteSpace(contact)
-    ? Environment.GetEnvironmentVariable("VRCHAT_CONTACT") ?? ""
+AppIdentity.ContactOverride = string.IsNullOrWhiteSpace(contact)
+    ? Environment.GetEnvironmentVariable("VRCHAT_CONTACT")
     : contact;
 
 builder.Services.AddEndpointsApiExplorer();

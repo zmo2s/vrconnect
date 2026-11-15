@@ -33,32 +33,14 @@ try {
 }
 
 # --- Configure appsettings.json ---
-# No database and no secret to type: the API makes its own JWT key.
-# The only setting is the contact VRChat asks API tools to send (it may refuse unknown clients with 403).
+# Nothing to type: no database, the API makes its own JWT key, and it identifies itself to VRChat
+# with the project page. (Optional: set "VRChat:Contact" to your own email.)
 $apiDir = Join-Path $scriptDir "DashboardVRChat.Api"
 $settingsPath = Join-Path $apiDir "appsettings.json"
 if (-not (Test-Path $settingsPath)) {
     Copy-Item (Join-Path $apiDir "appsettings.example.json") $settingsPath
 }
-
-$settings = Get-Content $settingsPath -Raw | ConvertFrom-Json
-if (-not $settings.VRChat) {
-    $settings | Add-Member -NotePropertyName VRChat -NotePropertyValue ([pscustomobject]@{ Contact = "" })
-}
-$current = $settings.VRChat.Contact
-
-Write-Host ""
-Write-Host "--- VRChat contact ---" -ForegroundColor Yellow
-Write-Host "VRChat asks tools that use its API to identify themselves with a contact email."
-Write-Host "It is only sent to VRChat, and stays in your local appsettings.json."
-Write-Host ""
-$prompt = "Your email"
-if ($current) { $prompt += " [$current]" }
-$contact = Read-Host $prompt
-if ($contact) { $settings.VRChat.Contact = $contact.Trim() }
-
-$settings | ConvertTo-Json -Depth 5 | Set-Content $settingsPath -Encoding UTF8
-Write-Host "[OK] appsettings.json configured" -ForegroundColor Green
+Write-Host "[OK] appsettings.json ready" -ForegroundColor Green
 
 # --- Install frontend deps ---
 Write-Host ""
