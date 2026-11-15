@@ -21,7 +21,7 @@ and keep up with invites — **without opening the game**.
 
 <br/>
 
-<img src="docs/demo.webp" alt="vrconnect in action: social radar, friends list, world cards and friend profile" width="100%"/>
+<img src="docs/demo.webp" alt="vrconnect in action: social radar, friends list, friend profile, groups, activity and settings" width="100%"/>
 
 <br/><br/>
 
