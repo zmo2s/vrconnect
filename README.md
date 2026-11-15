@@ -21,9 +21,7 @@ and keep up with invites — **without opening the game**.
 
 <br/>
 
-<img src="docs/screenshot.png" alt="vrconnect dashboard: online friends, shared locations and world cards over a custom wallpaper" width="100%"/>
-
-<!-- DEMO VIDEO: drag pub_edit_music.mp4 onto this line in GitHub's web editor -->
+<img src="docs/demo.webp" alt="vrconnect in action: social radar, friends list, world cards and friend profile" width="100%"/>
 
 <br/><br/>
 
